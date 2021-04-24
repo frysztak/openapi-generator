@@ -1,0 +1,93 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: a9d06603a5f687f9d1b3a5499f32e81b731d095e3b7dfa657568c171565c7936
+
+name:           openapi-generator
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/openapi-generator#readme>
+homepage:       https://github.com/frysztak/openapi-generator#readme
+bug-reports:    https://github.com/frysztak/openapi-generator/issues
+author:         Sebastian Frysztak
+maintainer:     sebastian.frysztak@gmail.com
+copyright:      2021 Sebastian Frysztak
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/frysztak/openapi-generator
+
+library
+  exposed-modules:
+      Codegen
+      OpenAPI
+  other-modules:
+      Paths_openapi_generator
+  hs-source-dirs:
+      src
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , generic-lens
+    , hspec
+    , language-typescript2
+    , lens
+    , pretty-simple
+    , raw-strings-qq
+    , text
+  default-language: Haskell2010
+
+executable openapi-generator-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_openapi_generator
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , generic-lens
+    , hspec
+    , language-typescript2
+    , lens
+    , openapi-generator
+    , pretty-simple
+    , raw-strings-qq
+    , text
+  default-language: Haskell2010
+
+test-suite openapi-generator-test
+  type: exitcode-stdio-1.0
+  main-is: OpenAPISpec.hs
+  other-modules:
+      Paths_openapi_generator
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , generic-lens
+    , hspec
+    , language-typescript2
+    , lens
+    , openapi-generator
+    , pretty-simple
+    , raw-strings-qq
+    , text
+  default-language: Haskell2010
