@@ -30,7 +30,6 @@ dependencies:
 - raw-strings-qq
 - lens
 - generic-lens
-- language-typescript2
 
 library:
   source-dirs: 
@@ -49,12 +48,16 @@ executables:
     - openapi-generator
 
 tests:
-  openapi-generator-test:
-    main:                OpenAPISpec.hs
-    source-dirs:         test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - openapi-generator
+  spec:
+    defaults: hspec/hspec@master
+    dependencies: 
+     - openapi-generator
+  #openapi-generator-test:
+  #  main:                OpenAPISpec.hs
+  #  source-dirs:         test
+  #  ghc-options:
+  #  - -threaded
+  #  - -rtsopts
+  #  - -with-rtsopts=-N
+  #  dependencies:
+  #  - openapi-generator

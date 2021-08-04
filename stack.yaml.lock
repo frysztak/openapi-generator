@@ -3,18 +3,7 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages:
-- completed:
-    size: 4707
-    filepath: /home/frysztak/repos/language-typescript2/.stack-work/dist/x86_64-linux-tinfo6/Cabal-3.2.1.0/language-typescript2-0.1.0.0.tar.gz
-    name: language-typescript2
-    version: 0.1.0.0
-    sha256: 26cf99302be11e6c4b8744d3a26ff6026e661e6c71349136fec535a99b3c25a7
-    pantry-tree:
-      size: 526
-      sha256: 96715f9ed974b506d249b1ece7108c4ee20a01ee614f23dbc8553cb34c6a7cf2
-  original:
-    filepath: /home/frysztak/repos/language-typescript2/.stack-work/dist/x86_64-linux-tinfo6/Cabal-3.2.1.0/language-typescript2-0.1.0.0.tar.gz
+packages: []
 snapshots:
 - completed:
     size: 567037
