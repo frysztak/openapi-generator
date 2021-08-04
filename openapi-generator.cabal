@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a9d06603a5f687f9d1b3a5499f32e81b731d095e3b7dfa657568c171565c7936
+-- hash: 4df9fc7cb3a4fba6226f8f1dde8c6600f79533aba8f098583bbd3e1055ab29b2
 
 name:           openapi-generator
 version:        0.1.0.0
@@ -27,7 +27,14 @@ source-repository head
 
 library
   exposed-modules:
-      Codegen
+      Generator
+      Generator.Common
+      Generator.Fetch
+      Generator.Interface
+      Generator.ReactQuery
+      Language.TypeScript
+      Language.TypeScript.Printer
+      Language.TypeScript.Syntax
       OpenAPI
   other-modules:
       Paths_openapi_generator
@@ -40,7 +47,6 @@ library
     , containers
     , generic-lens
     , hspec
-    , language-typescript2
     , lens
     , pretty-simple
     , raw-strings-qq
@@ -61,7 +67,6 @@ executable openapi-generator-exe
     , containers
     , generic-lens
     , hspec
-    , language-typescript2
     , lens
     , openapi-generator
     , pretty-simple
@@ -69,25 +74,26 @@ executable openapi-generator-exe
     , text
   default-language: Haskell2010
 
-test-suite openapi-generator-test
+test-suite spec
   type: exitcode-stdio-1.0
-  main-is: OpenAPISpec.hs
+  main-is: Spec.hs
   other-modules:
+      Generator.CommonSpec
+      OpenAPISpec
       Paths_openapi_generator
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
     , base >=4.7 && <5
     , bytestring
     , containers
     , generic-lens
-    , hspec
-    , language-typescript2
+    , hspec ==2.*
     , lens
     , openapi-generator
     , pretty-simple
     , raw-strings-qq
     , text
   default-language: Haskell2010
+  build-tool-depends: hspec-discover:hspec-discover == 2.*

@@ -2,16 +2,28 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
+module OpenAPISpec where
+
 import Data.Aeson
 import Data.ByteString.Lazy
 import OpenAPI
 import Test.Hspec
 import Text.RawString.QQ (r)
 
-main :: IO ()
-main = hspec $ do
+spec :: Spec
+spec = do
   describe "schema parser" $ do
-    let schemaDef = Schema {itemType = "", items = Nothing, format = Nothing, defaultValue = Nothing, enum = Nothing}
+    let schemaDef =
+          Schema
+            { itemType = "",
+              items = Nothing,
+              format = Nothing,
+              defaultValue = Nothing,
+              enum = Nothing,
+              properties = Nothing,
+              required = [],
+              nullable = Nothing
+            }
 
     it "can parse basic schema" $ do
       let expected = SchemaData $ schemaDef {itemType = "string", format = Just "binary"}
@@ -32,6 +44,3 @@ main = hspec $ do
     it "fails for type 'array' without items" $ do
       let expected = "Error in $: parsing Schema failed - type 'array' requires 'items' to be specified."
       eitherDecode [r|{"type": "array"}|] `shouldBe` (Left expected :: Either String SchemaOrReference)
-
--- describe "parameter parser" $ do
---   it "can parse basic parameter" $ do
