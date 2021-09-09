@@ -30,6 +30,7 @@ dependencies:
 - raw-strings-qq
 - lens
 - generic-lens
+- data-default
 
 library:
   source-dirs: 
