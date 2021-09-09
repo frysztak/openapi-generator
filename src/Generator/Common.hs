@@ -29,26 +29,34 @@ schemaToType :: SchemaOrReference -> Type
 schemaToType = genAST
 
 instance GenerateAST SchemaOrReference Type where
-  genAST (SchemaData schema) = case schema ^. #itemType of
-    -- TODO: handle nullable values
-    "string" -> String
-    "object" ->
-      Object $
-        mapMaybeMap $ mapKeys' . mapValues' <$> properties
-      where
-        properties = schema ^. #properties
-        required = schema ^. #required
-        mapKeys' = mapKeys $ \k ->
-          if k `elem` required
-            then StringKey k
-            else Optional $ StringKey k
-        mapValues' = map genAST
-    "integer" -> Number
-    "boolean" -> Boolean
-    "array" -> case schema ^. #items of
-      Just schemaOrRef -> List $ genAST schemaOrRef
-      Nothing -> error "ItemType 'array' without 'items'"
-    x -> TypeRef x
+  genAST (SchemaData schema) = makeNullable' type'
+    where
+      makeNullable :: Type -> Type
+      makeNullable t = Language.TypeScript.Syntax.Operation Union t Null
+
+      makeNullable' = case schema ^. #nullable of
+        Just True -> makeNullable
+        _ -> id
+
+      type' = case schema ^. #itemType of
+        "string" -> String
+        "object" ->
+          Object $
+            mapMaybeMap $ mapKeys' . mapValues' <$> properties
+          where
+            properties = schema ^. #properties
+            required = schema ^. #required
+            mapKeys' = mapKeys $ \k ->
+              if k `elem` required
+                then StringKey k
+                else Optional $ StringKey k
+            mapValues' = map genAST
+        "integer" -> Number
+        "boolean" -> Boolean
+        "array" -> case schema ^. #items of
+          Just schemaOrRef -> List $ genAST schemaOrRef
+          Nothing -> error "ItemType 'array' without 'items'"
+        x -> TypeRef x
   genAST (SchemaReference (Reference ref)) = TypeRef $ cleanRef ref
     where
       cleanRef :: Text -> Text
