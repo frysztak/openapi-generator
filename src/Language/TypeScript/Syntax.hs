@@ -40,9 +40,21 @@ data Type
 data VariableType = Const | Let | Var
   deriving (Show, Eq)
 
+type VariableBindingPattern = [VariableBindingElement]
+
+data VariableBindingElement = VariableBindingElement
+  { identifier :: Text,
+    bindingPattern :: Maybe VariableBindingPattern,
+    initialValue :: Maybe Expression
+  }
+  deriving (Show, Eq)
+
+data VariableIdentifier = VariableName Text | VariableBinding VariableBindingPattern
+  deriving (Show, Eq)
+
 data VariableDeclaration = VariableDeclaration
   { variableType :: VariableType,
-    identifier :: Text,
+    identifier :: VariableIdentifier,
     typeReference :: Maybe Type,
     initialValue :: Maybe Expression
   }
@@ -69,9 +81,20 @@ data Expression
   | EBinaryOp BinaryOp Expression Expression
   | ETernaryOp Expression Expression Expression
   | EVarRef Text
-  | EFunctionCall Text [Expression]
+  | EFunctionCall Expression [Expression]
+  | ENew NewExpression
   | EAwait Expression
   | ELambda Lambda
+  | EObjectLiteral ObjectLiteralExpression
+  | EPropertyAccess Expression Expression
+  | EAs Expression Type
+  deriving (Show, Eq)
+
+data NewExpression = NewExpression
+  { constructor :: Text,
+    typeArguments :: [Type],
+    arguments :: [Expression]
+  }
   deriving (Show, Eq)
 
 data UnaryOp = Neg | Not | Plus
@@ -99,6 +122,21 @@ data BinaryOp
   | BitOR -- "|"
   | BitXOR -- "^"
   | BitAND -- "&"
+  | Nullish -- "??"
+  | Assignment -- "="
+  deriving (Show, Eq)
+
+type ObjectLiteralExpression = [ObjectLiteralProperty]
+
+data ObjectLiteralProperty
+  = SpreadAssignment Text
+  | PropertyAssignment PropertyName Expression
+  | ShorthandPropertyAssignment Text
+  deriving (Show, Eq)
+
+data PropertyName
+  = PropertyExplicitName Text
+  | PropertyComputedName Text
   deriving (Show, Eq)
 
 data Global
@@ -128,11 +166,38 @@ data FunctionDef = FunctionDef
   }
   deriving (Show, Eq)
 
+type Block = [Statement]
+
+data IfStatement = IfStatement
+  { condition :: Expression,
+    thenBlock :: Block,
+    elseBlock :: Maybe Block,
+    elseIf :: Maybe IfStatement
+  }
+  deriving (Show, Eq)
+
+data TryStatement = TryStatement
+  { tryBlock :: Block,
+    catchClause :: CatchClause,
+    finallyBlock :: Maybe Block
+  }
+  deriving (Show, Eq)
+
+data CatchClause = CatchClause
+  { variableName :: Text,
+    variableType :: Maybe Type,
+    catchBlock :: Block
+  }
+  deriving (Show, Eq)
+
 data Statement
   = StatementVar VariableDeclaration
   | StatementExpr Expression
   | StatementFunc FunctionDef
   | Return Expression
+  | StatementIf IfStatement
+  | StatementThrow Expression
+  | StatementTry TryStatement
   deriving (Show, Eq)
 
 data TypeProperty = TypeProperty
