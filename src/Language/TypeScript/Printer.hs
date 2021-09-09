@@ -1,12 +1,15 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Language.TypeScript.Printer where
 
 import Data.Map (Map, toList)
-import Data.Text (Text, empty, intercalate)
+import Data.Maybe
+import Data.Text (Text, empty, intercalate, lines, unlines)
 import Language.TypeScript.Syntax
-import Prelude hiding (EQ, GT, LT)
+import Prelude hiding (EQ, GT, LT, lines, unlines)
 
 semicolon = ";"
 
@@ -66,7 +69,7 @@ instance PrettyPrintable VariableDeclaration where
         identifier
         typeReference
         initialValue
-      ) = pprint variableType <> " " <> identifier <> t <> v
+      ) = pprint variableType <> " " <> pprint identifier <> t <> v
       where
         t = case typeReference of
           Nothing -> empty
@@ -74,6 +77,16 @@ instance PrettyPrintable VariableDeclaration where
         v = case initialValue of
           Nothing -> empty
           Just v' -> " = " <> pprint v'
+
+instance PrettyPrintable VariableIdentifier where
+  pprint (VariableName s) = s
+  pprint (VariableBinding b) = pprint b
+
+instance PrettyPrintable VariableBindingPattern where
+  pprint elements = "{" <> intercalate ", " (map pprint elements) <> "}"
+
+instance PrettyPrintable VariableBindingElement where
+  pprint (VariableBindingElement identifier bindingPattern initialValue) = identifier
 
 instance PrettyPrintable LambdaBody where
   pprint (LambdaBodyExpr e) = pprint e
@@ -84,7 +97,7 @@ instance PrettyPrintable LambdaBody where
     where
       body' = foldr reducer "" stmts
       reducer :: PrettyPrintable a => a -> Text -> Text
-      reducer = (\t acc -> acc <> appendNewLine t) . indent . pprint
+      reducer = (\acc t -> appendNewLine acc <> t) . indent . pprint
 
 instance PrettyPrintable Lambda where
   pprint (Lambda async args returnType body) = async' <> "(" <> args' <> ")" <> returnType' <> " => " <> body'
@@ -116,9 +129,34 @@ instance PrettyPrintable Expression where
             precedence = getPrecedence e'
     ETernaryOp e1 e2 e3 -> pprint e1 <> " ? " <> pprint e2 <> " : " <> pprint e3
     EVarRef v -> v
-    EFunctionCall name exprs -> name <> "(" <> intercalate ", " (map pprint exprs) <> ")"
+    EFunctionCall lhs exprs -> pprint lhs <> "(" <> intercalate ", " (map pprint exprs) <> ")"
+    ENew n -> pprint n
     EAwait expr -> "await " <> pprint expr
     ELambda l -> pprint l
+    EObjectLiteral properties ->
+      appendNewLine "{"
+        <> appendNewLine (intercalate ",\n" (map (indent . pprint) properties))
+        <> indent "}"
+    EPropertyAccess lhs rhs -> pprint lhs <> "." <> pprint rhs
+    EAs lhs rhs -> "(" <> pprint lhs <> " as " <> pprint rhs <> ")"
+
+instance PrettyPrintable NewExpression where
+  pprint NewExpression {constructor, typeArguments, arguments} = "new " <> constructor <> typeArgs' <> args'
+    where
+      typeArgs' =
+        if null typeArguments
+          then empty
+          else "<" <> intercalate ", " (map pprint typeArguments) <> ">"
+      args' = "(" <> intercalate ", " (map pprint arguments) <> ")"
+
+instance PrettyPrintable ObjectLiteralProperty where
+  pprint (SpreadAssignment name) = "..." <> name
+  pprint (ShorthandPropertyAssignment name) = name
+  pprint (PropertyAssignment name expr) = pprint name <> ": " <> pprint expr
+
+instance PrettyPrintable PropertyName where
+  pprint (PropertyExplicitName name) = name
+  pprint (PropertyComputedName name) = "[" <> name <> "]"
 
 instance PrettyPrintable UnaryOp where
   pprint op = case op of
@@ -147,10 +185,14 @@ instance PrettyPrintable BinaryOp where
     BitOR -> "|"
     BitXOR -> "^"
     BitAND -> "&"
+    Nullish -> "??"
+    Assignment -> "="
 
 getPrecedence :: Expression -> Int
 getPrecedence (EBinaryOp op _ _) = case op of
   -- https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_Precedence#table
+  Assignment -> 3
+  Nullish -> 5
   LogicOR -> 6
   LogicAND -> 7
   BitOR -> 8
@@ -208,6 +250,9 @@ printMaybe' fun m = case m of
 indent :: Text -> Text
 indent t = "  " <> t
 
+indentEachLine :: Text -> Text
+indentEachLine t = intercalate "\n" $ map indent (lines t)
+
 appendNewLine :: Text -> Text
 appendNewLine t = t <> "\n"
 
@@ -225,11 +270,40 @@ instance PrettyPrintable FunctionDef where
       reducer :: PrettyPrintable a => a -> Text -> Text
       reducer = (\t acc -> acc <> appendNewLine t) . indent . pprint
 
+instance PrettyPrintable IfStatement where
+  pprint IfStatement {condition, thenBlock, elseBlock, elseIf} =
+    "if (" <> pprint condition <> appendNewLine ") " <> body
+    where
+      body = pprint thenBlock
+
+instance PrettyPrintable TryStatement where
+  pprint TryStatement {tryBlock, catchClause, finallyBlock} =
+    "try " <> pprint tryBlock
+      <> pprint catchClause
+
+instance PrettyPrintable CatchClause where
+  pprint CatchClause {variableName, variableType, catchBlock} =
+    "catch(" <> variableName
+      <> fromMaybe empty type'
+      <> ")"
+      <> pprint catchBlock
+    where
+      type' = fmap pprint variableType
+
 instance PrettyPrintable Statement where
   pprint (StatementVar var) = pprint var <> semicolon
   pprint (StatementExpr e) = pprint e <> semicolon
   pprint (StatementFunc f) = pprint f
   pprint (Return e) = "return " <> pprint e <> semicolon
+  pprint (StatementIf iff) = pprint iff
+  pprint (StatementThrow e) = "throw " <> pprint e <> semicolon
+  pprint (StatementTry t) = pprint t
+
+instance PrettyPrintable Block where
+  pprint stmts =
+    appendNewLine "{"
+      <> unlines (map (indent . pprint) stmts)
+      <> "}"
 
 instance PrettyPrintable TypeProperty where
   pprint (TypeProperty name optional typeReference) =
