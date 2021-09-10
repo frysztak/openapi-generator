@@ -24,9 +24,11 @@ instance GenerateAST OpenAPI Module where
   genAST openApi =
     Module
       { fileName = "fetch.ts",
-        body = configInterface : functions'
+        body = importModels : configInterface : functions'
       }
     where
+      importModels = GlobalImport $ NamespaceImport "M" "./models"
+
       configInterface =
         Export . GlobalInterface $
           InterfaceDeclaration
@@ -37,6 +39,7 @@ instance GenerateAST OpenAPI Module where
                   [ (StringKey "baseUrl", String)
                   ]
             }
+
       functions = genAST $ openApi ^. #paths
       functions' = [Export . GlobalVar] <*> functions
 
@@ -65,11 +68,9 @@ instance GenerateAST (Text, Text, Operation) VariableDeclaration where
           Lambda
             { async = Just False,
               args =
-                [ FunctionArg
+                [ makeFunctionArg
                     { name = "config",
-                      optional = Nothing,
-                      typeReference = Just $ TypeRef "ClientConfig",
-                      defaultValue = Nothing
+                      typeReference = Just $ TypeRef "ClientConfig"
                     }
                 ],
               body = LambdaBodyExpr e,
@@ -114,7 +115,7 @@ getResponseType rs = do
   code200 <- rs M.!? "200"
   content <- code200 ^. #content
   json <- content M.!? "application/json"
-  pure $ schemaToType $ json ^. #schema
+  pure $ QualifiedName "M" $ schemaToType $ json ^. #schema
 
 getFetchBody :: Text -> Text -> Operation -> Maybe Type -> LambdaBody
 getFetchBody path verb op returnType = LambdaBodyStatements stmts
