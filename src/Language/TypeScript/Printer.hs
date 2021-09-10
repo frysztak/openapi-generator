@@ -36,6 +36,7 @@ instance PrettyPrintable Type where
     Generic a b -> pprint a <> "<" <> intercalate ", " (map pprint b) <> ">"
     Operation op a b -> pprint a <> pprint op <> pprint b
     Object o -> pprint o
+    QualifiedName lhs rhs -> lhs <> "." <> pprint rhs
 
 instance PrettyPrintable (Map ObjectKey Type) where
   pprint o = "{\n" <> intercalate ",\n" fields <> "\n}"
@@ -320,11 +321,11 @@ instance PrettyPrintable InterfaceDeclaration where
       properties' = pprint properties
 
 instance PrettyPrintable ImportDefinition where
-  pprint (NamespaceImport as from) = "import * as " <> as <> " from " <> from
-  pprint (NamedImport ts from) = "import {" <> ts' <> "} from " <> from
+  pprint (NamespaceImport as from) = "import * as " <> as <> " from \"" <> from <> "\""
+  pprint (NamedImport ts from) = "import {" <> ts' <> "} from \"" <> from <> "\""
     where
       ts' = intercalate ", " ts
-  pprint (DefaultImport name from) = "import " <> name <> " from " <> from
+  pprint (DefaultImport name from) = "import " <> name <> " from \"" <> from <> "\""
 
 instance PrettyPrintable Module where
   pprint Module {body} = intercalate "\n\n" $ map pprint body

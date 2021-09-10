@@ -35,6 +35,7 @@ data Type
   | Object (Map ObjectKey Type)
   | Generic Type [Type]
   | Operation TypeOperation Type Type
+  | QualifiedName Text Type
   deriving (Show, Eq)
 
 data VariableType = Const | Let | Var
