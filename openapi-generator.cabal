@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 802f0dbf750f752e70f33768a5f3095635dbf464559791890cb5f80b7126c67b
+-- hash: 06a281a74d94558a2673ec41778566c9c009b08c8058221a75309a61c6d33465
 
 name:           openapi-generator
 version:        0.1.0.0
@@ -49,6 +49,7 @@ library
     , generic-lens
     , hspec
     , lens
+    , optparse-applicative
     , pretty-simple
     , raw-strings-qq
     , text
@@ -71,6 +72,7 @@ executable openapi-generator-exe
     , hspec
     , lens
     , openapi-generator
+    , optparse-applicative
     , pretty-simple
     , raw-strings-qq
     , text
@@ -95,6 +97,7 @@ test-suite spec
     , hspec ==2.*
     , lens
     , openapi-generator
+    , optparse-applicative
     , pretty-simple
     , raw-strings-qq
     , text
