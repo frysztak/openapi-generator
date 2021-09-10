@@ -21,7 +21,11 @@ fetchGenerator :: Generator
 fetchGenerator = genAST
 
 instance GenerateAST OpenAPI Module where
-  genAST openApi = Module $ configInterface : functions'
+  genAST openApi =
+    Module
+      { fileName = "fetch.ts",
+        body = configInterface : functions'
+      }
     where
       configInterface =
         Export . GlobalInterface $

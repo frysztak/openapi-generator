@@ -327,4 +327,4 @@ instance PrettyPrintable ImportDefinition where
   pprint (DefaultImport name from) = "import " <> name <> " from " <> from
 
 instance PrettyPrintable Module where
-  pprint (Module globals) = intercalate "\n\n" $ map pprint globals
+  pprint Module {body} = intercalate "\n\n" $ map pprint body

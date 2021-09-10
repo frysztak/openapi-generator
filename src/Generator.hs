@@ -10,6 +10,5 @@ class GenerateAST a b where
 
 type Generator = OpenAPI -> Module
 
-generate :: OpenAPI -> [Generator] -> Module
-generate openApi gs = mconcat $ gs <*> [openApi]
-
+generate :: OpenAPI -> [Generator] -> [Module]
+generate openApi gs = gs <*> [openApi]

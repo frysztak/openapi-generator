@@ -32,6 +32,8 @@ dependencies:
 - generic-lens
 - data-default
 - optparse-applicative
+- filepath
+- directory
 
 library:
   source-dirs: 
