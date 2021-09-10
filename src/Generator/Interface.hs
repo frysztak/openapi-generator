@@ -39,7 +39,7 @@ instance GenerateAST Schemas [Global] where
       mapper :: Text -> SchemaOrReference -> Global
       mapper name schema = case genAST schema of
         Object o ->
-          GlobalInterface
+          (Export . GlobalInterface)
             InterfaceDeclaration
               { name = fixSchemaName name,
                 properties = o,
