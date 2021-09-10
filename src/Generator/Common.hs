@@ -111,3 +111,7 @@ getOperationName path verb op = fromMaybe name $ op ^. #operationId
     removeDashes s = concat $ L.map capitalize chunks
       where
         chunks = splitOn "-" s
+
+fixSchemaName :: Text -> Text
+fixSchemaName "Error" = "ErrorResponse"
+fixSchemaName x = x

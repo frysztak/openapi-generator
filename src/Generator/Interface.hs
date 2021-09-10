@@ -41,7 +41,7 @@ instance GenerateAST Schemas [Global] where
         Object o ->
           GlobalInterface
             InterfaceDeclaration
-              { name = name,
+              { name = fixSchemaName name,
                 properties = o,
                 extends = Nothing
               }
