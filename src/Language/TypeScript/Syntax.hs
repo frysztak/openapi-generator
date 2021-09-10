@@ -220,11 +220,8 @@ data ImportDefinition
   | DefaultImport Text Text -- import t1 from t2
   deriving (Show, Eq)
 
-data Module = Module [Global]
+data Module = Module
+  { fileName :: Text,
+    body :: [Global]
+  }
   deriving (Show, Eq)
-
-instance Semigroup Module where
-  (Module m1) <> (Module m2) = Module $ m1 <> m2
-
-instance Monoid Module where
-  mempty = Module []

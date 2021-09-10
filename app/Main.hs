@@ -10,14 +10,21 @@
 
 module Main where
 
+import Control.Monad
 import qualified Data.ByteString.Lazy as BL
-import Data.Text
+import Data.Text (unpack)
+import Data.Text.IO (writeFile)
 import Generator (generate)
 import Generator.Fetch
+import Generator.Interface
 import Language.TypeScript.Printer (pprint)
+import Language.TypeScript.Syntax (fileName)
 import OpenAPI (decodeOpenApi)
 import Options.Applicative
-import System.Exit
+import System.Directory
+import System.Exit (die)
+import System.FilePath (takeBaseName, (</>))
+import Prelude hiding (writeFile)
 
 data CLIArgs = CLIArgs
   { input :: [String],
@@ -25,9 +32,10 @@ data CLIArgs = CLIArgs
   }
 
 parseStringList :: Monad m => String -> m [String]
-parseStringList = return . Prelude.words
+parseStringList = return . words
 
-multiString desc = Prelude.concat <$> some single
+multiString :: Mod OptionFields [String] -> Parser [String]
+multiString desc = concat <$> some single
   where
     single = option (str >>= parseStringList) desc
 
@@ -55,22 +63,25 @@ main = runGenerator =<< execParser opts
     opts =
       info
         (cliParser <**> helper)
-        ( fullDesc
-            <> header "OpenAPI client generator"
-        )
+        (fullDesc <> header "OpenAPI client generator")
 
 runGenerator :: CLIArgs -> IO ()
 runGenerator CLIArgs {input, outputDir} = do
-  contents <- BL.readFile "openapi.json"
+  createDirectoryIfMissing True outputDir
 
-  case decodeOpenApi contents of
-    Left err -> die $ "Failed to parse JSON: '" ++ err ++ "'"
-    Right openApi ->
-      do
-        -- let ast = generate openApi [interfaceGenerator, fetchGenerator]
-        let modules = generate openApi [fetchGenerator]
-        putStrLn $ unpack $ pprint (modules !! 0)
+  forM_ input $ \inputFileName -> do
+    let baseName = takeBaseName inputFileName
+    let targetDir = outputDir </> baseName
+    createDirectoryIfMissing True targetDir
+    putStrLn $ "Running generator for " <> inputFileName <> "..."
 
-        return ()
-
-  return ()
+    contents <- BL.readFile inputFileName
+    case decodeOpenApi contents of
+      Left err -> die $ "Failed to parse JSON: '" ++ err ++ "'"
+      Right openApi ->
+        do
+          let modules = generate openApi [interfaceGenerator, fetchGenerator]
+          forM_ modules $ \tsModule -> do
+            let modulePath = targetDir </> (unpack $ fileName tsModule)
+            writeFile modulePath $ pprint tsModule
+            putStrLn $ "Generated " <> modulePath
