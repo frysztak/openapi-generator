@@ -13,7 +13,7 @@ import qualified Data.Map.Strict as M
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text hiding (concat, map)
 import Generator (GenerateAST, Generator, genAST)
-import Generator.Common (getOperationName, mapMaybeArray, schemaToType)
+import Generator.Common (getOperationName, makeIndexModule, mapMaybeArray, schemaToType)
 import Language.TypeScript
 import OpenAPI
 
@@ -29,7 +29,8 @@ instance GenerateAST OpenAPI [Module] where
       Module
         { fileName = "common.ts",
           body = [common]
-        }
+        },
+      makeIndexModule "./fetch"
     ]
     where
       importModels = GlobalImport $ NamespaceImport "M" "./models"

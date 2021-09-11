@@ -219,6 +219,7 @@ getPrecedence _ = -1
 instance PrettyPrintable Global where
   pprint (Export g) = "export " <> pprint g <> semicolon
   pprint (ExportDefault g) = "export default " <> pprint g <> semicolon
+  pprint (ExportAll m) = "export * from \"" <> m <> "\"" <> semicolon
   pprint (GlobalVar v) = pprint v
   pprint (GlobalFunc f) = pprint f
   pprint (GlobalInterface i) = pprint i

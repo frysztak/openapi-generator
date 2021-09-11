@@ -23,7 +23,8 @@ instance GenerateAST OpenAPI [Module] where
     [ Module
         { fileName = "models.ts",
           body = components'
-        }
+        },
+      makeIndexModule "./models"
     ]
     where
       components' = mapMaybeArray (genAST <$> openApi ^. #components)

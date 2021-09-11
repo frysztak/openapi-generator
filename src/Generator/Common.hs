@@ -115,3 +115,6 @@ getOperationName path verb op = fromMaybe name $ op ^. #operationId
 fixSchemaName :: Text -> Text
 fixSchemaName "Error" = "ErrorResponse"
 fixSchemaName x = x
+
+makeIndexModule :: Text -> Module
+makeIndexModule name = Module "index.ts" [ExportAll name]
