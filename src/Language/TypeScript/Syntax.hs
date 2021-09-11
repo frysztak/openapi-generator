@@ -143,6 +143,7 @@ data PropertyName
 data Global
   = Export Global
   | ExportDefault Global
+  | ExportAll Text
   | GlobalVar VariableDeclaration
   | GlobalFunc FunctionDef
   | GlobalInterface InterfaceDeclaration
