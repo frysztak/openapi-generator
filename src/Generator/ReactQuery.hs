@@ -8,7 +8,8 @@ import Language.TypeScript
 
 reactQueryGenerator :: Generator
 reactQueryGenerator openApi =
-  Module
-    { fileName = "query.ts",
-      body = []
-    }
+  [ Module
+      { fileName = "query.ts",
+        body = []
+      }
+  ]

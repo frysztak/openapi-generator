@@ -20,12 +20,17 @@ import OpenAPI
 fetchGenerator :: Generator
 fetchGenerator = genAST
 
-instance GenerateAST OpenAPI Module where
+instance GenerateAST OpenAPI [Module] where
   genAST openApi =
-    Module
-      { fileName = "fetch.ts",
-        body = importModels : configInterface : functions'
-      }
+    [ Module
+        { fileName = "fetch.ts",
+          body = importModels : configInterface : functions'
+        },
+      Module
+        { fileName = "common.ts",
+          body = [common]
+        }
+    ]
     where
       importModels = GlobalImport $ NamespaceImport "M" "./models"
 
@@ -42,6 +47,16 @@ instance GenerateAST OpenAPI Module where
 
       functions = genAST $ openApi ^. #paths
       functions' = [Export . GlobalVar] <*> functions
+
+      common =
+        (Export . GlobalFunc)
+          FunctionDef
+            { name = "buildUrl",
+              async = Nothing,
+              args = [],
+              returnType = Just String,
+              body = []
+            }
 
 instance GenerateAST Paths [VariableDeclaration] where
   genAST paths = concat . M.elems $ M.mapWithKey (curry genAST) paths
