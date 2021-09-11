@@ -1,6 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -11,7 +13,7 @@ import Control.Lens hiding (Const)
 import Data.Default
 import qualified Data.Map.Strict as M
 import Data.Maybe (catMaybes, fromMaybe)
-import Data.Text hiding (concat, map)
+import Data.Text (Text, toUpper)
 import Generator (GenerateAST, Generator, genAST)
 import Generator.Common (getOperationName, makeIndexModule, mapMaybeArray, schemaToType)
 import Language.TypeScript
@@ -24,16 +26,17 @@ instance GenerateAST OpenAPI [Module] where
   genAST openApi =
     [ Module
         { fileName = "fetch.ts",
-          body = importModels : configInterface : functions'
+          body = importModels : importCommon : configInterface : functions'
         },
       Module
         { fileName = "common.ts",
-          body = [common]
+          body = common
         },
       makeIndexModule "./fetch"
     ]
     where
       importModels = GlobalImport $ NamespaceImport "M" "./models"
+      importCommon = GlobalImport $ NamedImport ["buildUrl"] "../common"
 
       configInterface =
         Export . GlobalInterface $
@@ -49,15 +52,7 @@ instance GenerateAST OpenAPI [Module] where
       functions = genAST $ openApi ^. #paths
       functions' = [Export . GlobalVar] <*> functions
 
-      common =
-        (Export . GlobalFunc)
-          FunctionDef
-            { name = "buildUrl",
-              async = Nothing,
-              args = [],
-              returnType = Just String,
-              body = []
-            }
+      common = [(Export . GlobalFunc) makeBuildUrlFunc]
 
 instance GenerateAST Paths [VariableDeclaration] where
   genAST paths = concat . M.elems $ M.mapWithKey (curry genAST) paths
@@ -110,6 +105,30 @@ getParameters :: Operation -> [FunctionArg]
 getParameters op = map getParameter parameters'
   where
     parameters' = mapMaybeArray $ op ^. #parameters
+
+getQueryParameters :: Operation -> Maybe Expression
+getQueryParameters op = case null objectLiterals of
+  True -> Nothing
+  False -> Just $ EObjectLiteral objectLiterals
+  where
+    parameters' = mapMaybeArray $ op ^. #parameters
+    queryParameters =
+      filter
+        ( \case
+            ParameterData param -> location param == "query"
+            _ -> False
+        )
+        parameters'
+    objectLiterals =
+      foldl
+        ( \acc param ->
+            case param of
+              ParameterData Parameter {name} ->
+                acc ++ [ShorthandPropertyAssignment name]
+              _ -> acc
+        )
+        []
+        queryParameters
 
 getParameter :: ParameterOrReference -> FunctionArg
 getParameter (ParameterReference (Reference ref)) =
@@ -177,10 +196,14 @@ getFetchBody path verb op returnType = LambdaBodyStatements stmts
           typeReference = Nothing,
           initialValue =
             Just
-              ( EBinaryOp
-                  Add
-                  (EVarRef "baseUrl")
-                  (EString path)
+              ( EFunctionCall
+                  (EVarRef "buildUrl")
+                  ( catMaybes
+                      [ Just $ EVarRef "baseUrl",
+                        Just $ EString path,
+                        getQueryParameters op
+                      ]
+                  )
               )
         }
 
@@ -331,3 +354,66 @@ instance Default VariableDeclaration where
 
 makeVariableDeclaration :: VariableDeclaration
 makeVariableDeclaration = def
+
+makeBuildUrlFunc :: FunctionDef
+makeBuildUrlFunc =
+  FunctionDef
+    { name = "buildUrl",
+      async = Nothing,
+      args =
+        [ makeFunctionArg
+            { name = "baseUrl",
+              typeReference = Just String
+            },
+          makeFunctionArg
+            { name = "endpoint",
+              typeReference = Just String
+            },
+          makeFunctionArg
+            { name = "params",
+              optional = Just True,
+              typeReference = Just $ Generic (TypeRef "Record") [String, String]
+            }
+        ],
+      returnType = Just String,
+      body =
+        [ StatementVar $
+            makeVariableDeclaration
+              { identifier = VariableName "url",
+                initialValue =
+                  Just $
+                    ENew
+                      ( NewExpression
+                          { constructor = "URL",
+                            typeArguments = [],
+                            arguments =
+                              [ EVarRef "endpoint",
+                                EVarRef "baseUrl"
+                              ]
+                          }
+                      )
+              },
+          StatementExpr $
+            EBinaryOp
+              Assignment
+              (EPropertyAccess (EVarRef "url") (EVarRef "search"))
+              ( EFunctionCall
+                  ( EPropertyAccess
+                      ( ENew $
+                          NewExpression
+                            { constructor = "URLSearchParams",
+                              typeArguments = [],
+                              arguments = [EVarRef "params"]
+                            }
+                      )
+                      (EVarRef "toString")
+                  )
+                  []
+              ),
+          Return $
+            EFunctionCall
+              ( EPropertyAccess (EVarRef "url") (EVarRef "toString")
+              )
+              []
+        ]
+    }
