@@ -270,7 +270,7 @@ instance PrettyPrintable FunctionDef where
       returnType' = printMaybe' (\t -> ": " <> pprint t) returnType
       body' = foldr reducer "" body
       reducer :: PrettyPrintable a => a -> Text -> Text
-      reducer = (\t acc -> acc <> appendNewLine t) . indent . pprint
+      reducer = (\acc t -> acc <> appendNewLine t) . indent . pprint
 
 instance PrettyPrintable IfStatement where
   pprint IfStatement {condition, thenBlock, elseBlock, elseIf} =
