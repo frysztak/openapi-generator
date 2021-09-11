@@ -18,12 +18,13 @@ import OpenAPI
 interfaceGenerator :: Generator
 interfaceGenerator = genAST
 
-instance GenerateAST OpenAPI Module where
+instance GenerateAST OpenAPI [Module] where
   genAST openApi =
-    Module
-      { fileName = "models.ts",
-        body = components'
-      }
+    [ Module
+        { fileName = "models.ts",
+          body = components'
+        }
+    ]
     where
       components' = mapMaybeArray (genAST <$> openApi ^. #components)
 

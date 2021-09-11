@@ -77,11 +77,13 @@ runGenerator CLIArgs {input, outputDir} = do
 
     contents <- BL.readFile inputFileName
     case decodeOpenApi contents of
-      Left err -> die $ "Failed to parse JSON: '" ++ err ++ "'"
+      Left err -> die $ "Failed to parse JSON: '" <> err <> "'"
       Right openApi ->
         do
           let modules = generate openApi [interfaceGenerator, fetchGenerator]
           forM_ modules $ \tsModule -> do
-            let modulePath = targetDir </> (unpack $ fileName tsModule)
+            let moduleName = fileName tsModule
+            let dir = if moduleName == "common.ts" then outputDir else targetDir
+            let modulePath = dir </> unpack (fileName tsModule)
             writeFile modulePath $ pprint tsModule
             putStrLn $ "Generated " <> modulePath
