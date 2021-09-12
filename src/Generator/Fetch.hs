@@ -373,23 +373,14 @@ makePopulateEndpointPathParamsFunc =
         ],
       returnType = Just String,
       body =
-        [ StatementIf $
-            IfStatement
-              { condition = EUnaryOp Not (EVarRef "pathParams"),
-                thenBlock =
-                  [ Return (EVarRef "endpoint")
-                  ],
-                elseBlock = Nothing,
-                elseIf = Nothing
-              },
-          Return $
+        [ Return $
             EFunctionCall
               ( EPropertyAccess (makeEntriesCall "pathParams") (EVarRef "reduce")
               )
               [ ELambda $
                   makeLambda
                     { args =
-                        [ makeFunctionArg {name = "newEndpoint"},
+                        [ makeFunctionArg {name = "populatedEndpoint"},
                           makeFunctionArg {name = "pathParam"}
                         ],
                       body =
@@ -405,7 +396,7 @@ makePopulateEndpointPathParamsFunc =
                                 },
                             Return $
                               EFunctionCall
-                                ( EPropertyAccess (EVarRef "newEndpoint") (EVarRef "replace")
+                                ( EPropertyAccess (EVarRef "populatedEndpoint") (EVarRef "replace")
                                 )
                                 [wrapInCurlyBrackets "name", EVarRef "value"]
                           ]
@@ -569,7 +560,7 @@ makeEntriesCall name =
   EFunctionCall
     ( EPropertyAccess (EVarRef "Object") (EVarRef "entries")
     )
-    [EVarRef name]
+    [EBinaryOp LogicOR (EVarRef name) (EObjectLiteral [])]
 
 wrapInCurlyBrackets :: Text -> Expression
 wrapInCurlyBrackets name =
