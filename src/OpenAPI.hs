@@ -73,7 +73,7 @@ data Operation = Operation
     -- externalDocs :: Maybe ExternalDocs,
     operationId :: Maybe Text,
     parameters :: Maybe [ParameterOrReference],
-    requestBody :: Maybe RequestBody,
+    requestBody :: Maybe RequestBodyOrReference,
     responses :: Responses,
     -- callbacks
     deprecated :: Maybe Bool
