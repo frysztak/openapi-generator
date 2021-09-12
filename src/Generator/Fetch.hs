@@ -102,9 +102,10 @@ instance GenerateAST (Text, Text, Operation) VariableDeclaration where
       initialValue = Just $ fetchConfigLambda fetchLambda
 
 getParameters :: Operation -> [FunctionArg]
-getParameters op = map getParameter parameters'
+getParameters op = map getParameter parameters' ++ requestBodyParam
   where
     parameters' = mapMaybeArray $ op ^. #parameters
+    requestBodyParam = getRequestBodyParameter op
 
 getParametersAtLocation :: Operation -> Text -> [ParameterOrReference]
 getParametersAtLocation op loc = parameters'
@@ -165,6 +166,33 @@ getParameter (ParameterData p) = FunctionArg {..}
     optional = fmap not $ p ^. #required
     typeReference = fmap schemaToType $ p ^. #schema
     defaultValue = Nothing
+
+getRequestBodyParameter :: Operation -> [FunctionArg]
+getRequestBodyParameter op = catMaybes [requestBodyToFuncArg =<< parameter']
+  where
+    parameter' = op ^. #requestBody
+
+requestBodyToFuncArg :: RequestBodyOrReference -> Maybe FunctionArg
+requestBodyToFuncArg (RequestBodyReference (Reference ref)) =
+  Just $
+    FunctionArg
+      { name = ref,
+        optional = Just False,
+        typeReference = Just String, -- String?
+        defaultValue = Nothing
+      }
+requestBodyToFuncArg (RequestBodyData p) =
+  fmap
+    ( \MediaType {schema} ->
+        makeFunctionArg
+          { name = "requestBody",
+            typeReference = Just $ QualifiedName "M" $ schemaToType schema
+          } ::
+          FunctionArg
+    )
+    json
+  where
+    json = (p ^. #content) M.!? "application/json"
 
 getResponseType :: Responses -> Maybe Type
 getResponseType rs = do
@@ -246,6 +274,18 @@ getFetchBody path verb op returnType = LambdaBodyStatements stmts
                 ]
         }
       where
+        dataArgument = case op ^. #requestBody of
+          Just _ ->
+            [ PropertyAssignment
+                (PropertyExplicitName "body")
+                ( EFunctionCall
+                    ( EPropertyAccess (EVarRef "JSON") (EVarRef "stringify")
+                    )
+                    [EVarRef "requestBody"]
+                )
+            ]
+          Nothing -> []
+
         fetch =
           StatementVar $
             makeVariableDeclaration
@@ -257,9 +297,11 @@ getFetchBody path verb op returnType = LambdaBodyStatements stmts
                         (EVarRef "fetch")
                         [ EVarRef "url",
                           EObjectLiteral
-                            [ ShorthandPropertyAssignment "signal",
-                              PropertyAssignment (PropertyExplicitName "method") (EString $ toUpper verb)
-                            ]
+                            ( [ ShorthandPropertyAssignment "signal",
+                                PropertyAssignment (PropertyExplicitName "method") (EString $ toUpper verb)
+                              ]
+                                ++ dataArgument
+                            )
                         ]
               }
 
