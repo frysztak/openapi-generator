@@ -36,7 +36,7 @@ instance GenerateAST OpenAPI [Module] where
     ]
     where
       importModels = GlobalImport $ NamespaceImport "M" "./models"
-      importCommon = GlobalImport $ NamedImport ["buildUrl"] "../common"
+      importCommon = GlobalImport $ NamedImport ["buildUrl", "buildHeaders"] "../common"
 
       configInterface =
         Export . GlobalInterface $
@@ -52,7 +52,11 @@ instance GenerateAST OpenAPI [Module] where
       functions = genAST $ openApi ^. #paths
       functions' = [Export . GlobalVar] <*> functions
 
-      common = [(Export . GlobalFunc) makeBuildUrlFunc, GlobalFunc makePopulateEndpointPathParamsFunc]
+      common =
+        [ (Export . GlobalFunc) makeBuildUrlFunc,
+          (Export . GlobalFunc) makeBuildHeadersFunc,
+          GlobalFunc makePopulateEndpointPathParamsFunc
+        ]
 
 instance GenerateAST Paths [VariableDeclaration] where
   genAST paths = concat . M.elems $ M.mapWithKey (curry genAST) paths
@@ -135,11 +139,8 @@ mapParametersToObject p = case null objectLiterals of
         []
         p
 
-getQueryParameters :: Operation -> Maybe Expression
-getQueryParameters op = mapParametersToObject $ getParametersAtLocation op "query"
-
-getPathParameters :: Operation -> Maybe Expression
-getPathParameters op = mapParametersToObject $ getParametersAtLocation op "path"
+getParametersObject :: Text -> Operation -> Maybe Expression
+getParametersObject loc op = mapParametersToObject $ getParametersAtLocation op loc
 
 getPathQueryParameters :: Operation -> [Expression]
 getPathQueryParameters op = case (path, query) of
@@ -148,8 +149,8 @@ getPathQueryParameters op = case (path, query) of
   (Just path', Nothing) -> [path']
   (_, _) -> []
   where
-    query = getQueryParameters op
-    path = getPathParameters op
+    query = getParametersObject "query" op
+    path = getParametersObject "path" op
     emptyObj = EObjectLiteral []
 
 getParameter :: ParameterOrReference -> FunctionArg
@@ -274,18 +275,6 @@ getFetchBody path verb op returnType = LambdaBodyStatements stmts
                 ]
         }
       where
-        dataArgument = case op ^. #requestBody of
-          Just _ ->
-            [ PropertyAssignment
-                (PropertyExplicitName "body")
-                ( EFunctionCall
-                    ( EPropertyAccess (EVarRef "JSON") (EVarRef "stringify")
-                    )
-                    [EVarRef "requestBody"]
-                )
-            ]
-          Nothing -> []
-
         fetch =
           StatementVar $
             makeVariableDeclaration
@@ -297,13 +286,38 @@ getFetchBody path verb op returnType = LambdaBodyStatements stmts
                         (EVarRef "fetch")
                         [ EVarRef "url",
                           EObjectLiteral
-                            ( [ ShorthandPropertyAssignment "signal",
-                                PropertyAssignment (PropertyExplicitName "method") (EString $ toUpper verb)
+                            ( [ signalArg,
+                                methodArg,
+                                headersArg
                               ]
-                                ++ dataArgument
+                                ++ dataArg
                             )
                         ]
               }
+          where
+            signalArg = ShorthandPropertyAssignment "signal"
+            methodArg =
+              PropertyAssignment
+                (PropertyExplicitName "method")
+                (EString $ toUpper verb)
+            headersArg =
+              PropertyAssignment
+                (PropertyExplicitName "headers")
+                ( EFunctionCall
+                    (EVarRef "buildHeaders")
+                    (catMaybes [getParametersObject "header" op])
+                )
+            dataArg = case op ^. #requestBody of
+              Just _ ->
+                [ PropertyAssignment
+                    (PropertyExplicitName "body")
+                    ( EFunctionCall
+                        ( EPropertyAccess (EVarRef "JSON") (EVarRef "stringify")
+                        )
+                        [EVarRef "requestBody"]
+                    )
+                ]
+              Nothing -> []
 
         json =
           StatementVar $
@@ -375,8 +389,7 @@ makePopulateEndpointPathParamsFunc =
       body =
         [ Return $
             EFunctionCall
-              ( EPropertyAccess (makeEntriesCall "pathParams") (EVarRef "reduce")
-              )
+              (EPropertyAccess (makeEntriesCall "pathParams") (EVarRef "reduce"))
               [ ELambda $
                   makeLambda
                     { args =
@@ -396,8 +409,7 @@ makePopulateEndpointPathParamsFunc =
                                 },
                             Return $
                               EFunctionCall
-                                ( EPropertyAccess (EVarRef "populatedEndpoint") (EVarRef "replace")
-                                )
+                                (EPropertyAccess (EVarRef "populatedEndpoint") (EVarRef "replace"))
                                 [wrapInCurlyBrackets "name", EVarRef "value"]
                           ]
                     },
@@ -475,9 +487,60 @@ makeBuildUrlFunc =
               ),
           Return $
             EFunctionCall
-              ( EPropertyAccess (EVarRef "url") (EVarRef "toString")
-              )
+              (EPropertyAccess (EVarRef "url") (EVarRef "toString"))
               []
+        ]
+    }
+
+makeBuildHeadersFunc :: FunctionDef
+makeBuildHeadersFunc =
+  FunctionDef
+    { name = "buildHeaders",
+      async = Nothing,
+      args =
+        [ makeFunctionArg
+            { name = "headerParams",
+              optional = Just True,
+              typeReference = Just $ Generic (TypeRef "Record") [String, String]
+            }
+        ],
+      returnType = Just $ Generic (TypeRef "Record") [String, String],
+      body =
+        [ Return $
+            EFunctionCall
+              (EPropertyAccess (makeEntriesCall "headerParams") (EVarRef "reduce"))
+              [ ELambda $
+                  makeLambda
+                    { args =
+                        [ makeFunctionArg {name = "headers"},
+                          makeFunctionArg {name = "headerParam"}
+                        ],
+                      body =
+                        LambdaBodyStatements
+                          [ StatementVar $
+                              makeVariableDeclaration
+                                { identifier =
+                                    VariableArrayBinding
+                                      [ VariableArrayBindingElement {identifier = "name", initialValue = Nothing},
+                                        VariableArrayBindingElement {identifier = "value", initialValue = Nothing}
+                                      ],
+                                  initialValue = Just $ EVarRef "headerParam"
+                                },
+                            Return $
+                              EObjectLiteral
+                                [ SpreadAssignment "headers",
+                                  PropertyAssignment
+                                    (PropertyComputedName "name")
+                                    (EVarRef "value")
+                                ]
+                          ]
+                    },
+                EObjectLiteral
+                  [ PropertyAssignment
+                      (PropertyExplicitName "Content-Type")
+                      (EString "application/json; charset=UTF-8")
+                  ]
+              ]
         ]
     }
 
