@@ -50,7 +50,18 @@ data VariableBindingElement = VariableBindingElement
   }
   deriving (Show, Eq)
 
-data VariableIdentifier = VariableName Text | VariableBinding VariableBindingPattern
+data VariableArrayBindingElement = VariableArrayBindingElement
+  { identifier :: Text,
+    initialValue :: Maybe Expression
+  }
+  deriving (Show, Eq)
+
+type VariableArrayBindingPattern = [VariableArrayBindingElement]
+
+data VariableIdentifier
+  = VariableName Text
+  | VariableBinding VariableBindingPattern
+  | VariableArrayBinding VariableArrayBindingPattern
   deriving (Show, Eq)
 
 data VariableDeclaration = VariableDeclaration

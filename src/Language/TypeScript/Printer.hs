@@ -82,12 +82,21 @@ instance PrettyPrintable VariableDeclaration where
 instance PrettyPrintable VariableIdentifier where
   pprint (VariableName s) = s
   pprint (VariableBinding b) = pprint b
+  pprint (VariableArrayBinding b) = pprint b
 
 instance PrettyPrintable VariableBindingPattern where
   pprint elements = "{" <> intercalate ", " (map pprint elements) <> "}"
 
 instance PrettyPrintable VariableBindingElement where
   pprint (VariableBindingElement identifier bindingPattern initialValue) = identifier
+
+instance PrettyPrintable VariableArrayBindingElement where
+  pprint (VariableArrayBindingElement identifier initialValue) = identifier <> initialValue'
+    where
+      initialValue' = maybe empty (\e -> " = " <> pprint e) initialValue
+
+instance PrettyPrintable VariableArrayBindingPattern where
+  pprint elements = "[" <> intercalate ", " (map pprint elements) <> "]"
 
 instance PrettyPrintable LambdaBody where
   pprint (LambdaBodyExpr e) = pprint e
