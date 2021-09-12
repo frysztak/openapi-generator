@@ -165,7 +165,7 @@ instance PrettyPrintable ObjectLiteralProperty where
   pprint (PropertyAssignment name expr) = pprint name <> ": " <> pprint expr
 
 instance PrettyPrintable PropertyName where
-  pprint (PropertyExplicitName name) = name
+  pprint (PropertyExplicitName name) = "\"" <> name <> "\""
   pprint (PropertyComputedName name) = "[" <> name <> "]"
 
 instance PrettyPrintable UnaryOp where
