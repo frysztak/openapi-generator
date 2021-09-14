@@ -47,4 +47,4 @@ instance GenerateAST Schemas [Global] where
                 properties = o,
                 extends = Nothing
               }
-        _ -> error "Schema is not an object"
+        t -> Export $ GlobalTypeAlias (fixSchemaName name) t

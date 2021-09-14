@@ -30,6 +30,7 @@ data Type
   | Undefined
   | Null
   | TypeRef Text
+  | StringLiteral Text
   | List Type
   | Tuple [Type]
   | Object (Map ObjectKey Type)
