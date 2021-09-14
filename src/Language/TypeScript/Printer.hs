@@ -31,6 +31,7 @@ instance PrettyPrintable Type where
     Undefined -> "undefined"
     Null -> "null"
     TypeRef ref -> ref
+    StringLiteral s -> "'" <> s <> "'"
     List a -> pprint a <> "[]"
     Tuple tup -> "[" <> intercalate ", " (map pprint tup) <> "]"
     Generic a b -> pprint a <> "<" <> intercalate ", " (map pprint b) <> ">"

@@ -9,13 +9,13 @@ import Control.Lens hiding (List)
 import Control.Monad (guard, when)
 import qualified Data.Char as Char
 import qualified Data.List as L
-import Data.Map.Strict (Map, empty, map, mapKeys)
+import Data.Map.Strict as M (Map, empty, map, mapKeys)
 import Data.Maybe (catMaybes, fromMaybe, isJust, listToMaybe)
 import Data.Text (Text, concat, dropAround, head, null, singleton, splitOn, tail, toTitle, unpack)
 import Generator (GenerateAST, genAST)
 import Language.TypeScript.Syntax
 import OpenAPI
-import Prelude hiding (concat, head, map, null, tail)
+import Prelude hiding (concat, head, null, tail)
 
 mapMaybeMap :: Maybe (Map k a) -> Map k a
 mapMaybeMap (Just m) = m
@@ -39,7 +39,9 @@ instance GenerateAST SchemaOrReference Type where
         _ -> id
 
       type' = case schema ^. #itemType of
-        "string" -> String
+        "string" -> case schema ^. #enum of
+          Nothing -> String
+          Just enumValues -> makeEnum enumValues
         "object" ->
           Object $
             mapMaybeMap $ mapKeys' . mapValues' <$> properties
@@ -50,7 +52,7 @@ instance GenerateAST SchemaOrReference Type where
               if k `elem` required
                 then StringKey k
                 else Optional $ StringKey k
-            mapValues' = map genAST
+            mapValues' = M.map genAST
         "integer" -> Number
         "boolean" -> Boolean
         "array" -> case schema ^. #items of
@@ -118,3 +120,9 @@ fixSchemaName x = x
 
 makeIndexModule :: Text -> Module
 makeIndexModule name = Module "index.ts" [ExportAll name]
+
+makeEnum :: [Text] -> Type
+makeEnum enumValues =
+  foldl1
+    (\acc enum -> Language.TypeScript.Syntax.Operation Union enum acc)
+    (Prelude.map StringLiteral enumValues)
