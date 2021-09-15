@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedLabels #-}
@@ -5,11 +6,11 @@
 
 module Generator.Common where
 
-import Control.Lens hiding (List)
-import Control.Monad (guard, when)
+import Control.Lens ((^.))
+import Control.Monad (guard, join, when)
 import qualified Data.Char as Char
 import qualified Data.List as L
-import Data.Map.Strict as M (Map, empty, map, mapKeys)
+import Data.Map.Strict as M (Map, empty, map, mapKeys, mapMaybe)
 import Data.Maybe (catMaybes, fromMaybe, isJust, listToMaybe)
 import Data.Text (Text, concat, dropAround, head, null, singleton, splitOn, tail, toTitle, unpack)
 import Generator (GenerateAST, genAST)
@@ -25,26 +26,22 @@ mapMaybeArray :: Maybe [a] -> [a]
 mapMaybeArray (Just a) = a
 mapMaybeArray Nothing = []
 
-schemaToType :: SchemaOrReference -> Type
+schemaToType :: SchemaOrReference -> Maybe Type
 schemaToType = genAST
 
-instance GenerateAST SchemaOrReference Type where
-  genAST (SchemaData schema) = makeNullable' type'
+instance GenerateAST SchemaOrReference (Maybe Type) where
+  genAST (SchemaData schema) = fmap makeNullable' type'
     where
-      makeNullable :: Type -> Type
-      makeNullable t = Language.TypeScript.Syntax.Operation Union t Null
-
       makeNullable' = case schema ^. #nullable of
         Just True -> makeNullable
         _ -> id
 
       type' = case schema ^. #itemType of
         "string" -> case schema ^. #enum of
-          Nothing -> String
-          Just enumValues -> makeEnum enumValues
+          Nothing -> Just String
+          Just enumValues -> Nothing
         "object" ->
-          Object $
-            mapMaybeMap $ mapKeys' . mapValues' <$> properties
+          Just $ Object objProps
           where
             properties = schema ^. #properties
             required = schema ^. #required
@@ -52,14 +49,15 @@ instance GenerateAST SchemaOrReference Type where
               if k `elem` required
                 then StringKey k
                 else Optional $ StringKey k
-            mapValues' = M.map genAST
-        "integer" -> Number
-        "boolean" -> Boolean
+            mapValues' = M.mapMaybe genAST
+            objProps = mapMaybeMap $ mapKeys' . mapValues' <$> properties
+        "integer" -> Just Number
+        "boolean" -> Just Boolean
         "array" -> case schema ^. #items of
-          Just schemaOrRef -> List $ genAST schemaOrRef
+          Just schemaOrRef -> (Just . List) =<< genAST schemaOrRef
           Nothing -> error "ItemType 'array' without 'items'"
-        x -> TypeRef x
-  genAST (SchemaReference (Reference ref)) = TypeRef $ cleanRef ref
+        x -> Just $ TypeRef x
+  genAST (SchemaReference (Reference ref)) = Just $ TypeRef $ cleanRef ref
     where
       cleanRef :: Text -> Text
       cleanRef = last . splitOn "/"
@@ -121,8 +119,5 @@ fixSchemaName x = x
 makeIndexModule :: Text -> Module
 makeIndexModule name = Module "index.ts" [ExportAll name]
 
-makeEnum :: [Text] -> Type
-makeEnum enumValues =
-  foldl1
-    (\acc enum -> Language.TypeScript.Syntax.Operation Union enum acc)
-    (Prelude.map StringLiteral enumValues)
+makeNullable :: Type -> Type
+makeNullable t = Language.TypeScript.Syntax.Operation Union t Null

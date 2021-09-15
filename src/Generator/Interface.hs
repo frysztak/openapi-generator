@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -36,15 +37,24 @@ instance GenerateAST Components [Global] where
 
 instance GenerateAST Schemas [Global] where
   genAST schemas =
-    M.elems $ M.mapWithKey mapper schemas
+    flatten $ M.elems $ M.mapWithKey mapper schemas
     where
-      mapper :: Text -> SchemaOrReference -> Global
-      mapper name schema = case genAST schema of
-        Object o ->
-          (Export . GlobalInterface)
-            InterfaceDeclaration
-              { name = fixSchemaName name,
-                properties = o,
-                extends = Nothing
-              }
-        t -> Export $ GlobalTypeAlias (fixSchemaName name) t
+      mapper :: Text -> SchemaOrReference -> [Global]
+      mapper name schema =
+        maybe
+          []
+          ( \case
+              Object o ->
+                [ (Export . GlobalInterface)
+                    InterfaceDeclaration
+                      { name = fixSchemaName name,
+                        properties = o,
+                        extends = Nothing
+                      }
+                ]
+              t -> [Export $ GlobalTypeAlias (fixSchemaName name) t]
+          )
+          (schemaToType schema)
+
+flatten :: [[a]] -> [a]
+flatten arr = [y | x <- arr, y <- x]

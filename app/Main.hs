@@ -15,6 +15,7 @@ import qualified Data.ByteString.Lazy as BL
 import Data.Text (unpack)
 import Data.Text.IO (writeFile)
 import Generator (generate)
+import Generator.Enum
 import Generator.Fetch
 import Generator.Interface
 import Language.TypeScript.Printer (pprint)
@@ -80,7 +81,7 @@ runGenerator CLIArgs {input, outputDir} = do
       Left err -> die $ "Failed to parse JSON: '" <> err <> "'"
       Right openApi ->
         do
-          let modules = generate openApi [interfaceGenerator, fetchGenerator]
+          let modules = generate openApi [interfaceGenerator, fetchGenerator, enumGenerator]
           forM_ modules $ \tsModule -> do
             let moduleName = fileName tsModule
             let dir = if moduleName == "common.ts" then outputDir else targetDir
