@@ -38,6 +38,8 @@ instance PrettyPrintable Type where
     Operation op a b -> pprint a <> pprint op <> pprint b
     Object o -> pprint o
     QualifiedName lhs rhs -> lhs <> "." <> pprint rhs
+    IndexedAccess lhs rhs -> pprint lhs <> "[" <> pprint rhs <> "]"
+    Typeof t -> "typeof " <> pprint t
 
 instance PrettyPrintable (Map ObjectKey Type) where
   pprint o = "{\n" <> intercalate ",\n" fields <> "\n}"
@@ -148,8 +150,11 @@ instance PrettyPrintable Expression where
       appendNewLine "{"
         <> appendNewLine (intercalate ",\n" (map (indent . pprint) properties))
         <> indent "}"
+    EArrayLiteral arr -> "[" <> intercalate "," (map pprint arr) <> "]"
     EPropertyAccess lhs rhs -> pprint lhs <> "." <> pprint rhs
+    EElementAccess lhs rhs -> pprint lhs <> "[" <> pprint rhs <> "]"
     EAs lhs rhs -> "(" <> pprint lhs <> " as " <> pprint rhs <> ")"
+    ETypeOf e -> "typeof " <> pprint e
 
 instance PrettyPrintable NewExpression where
   pprint NewExpression {constructor, typeArguments, arguments} = "new " <> constructor <> typeArgs' <> args'

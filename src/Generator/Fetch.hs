@@ -165,7 +165,7 @@ getParameter (ParameterData p) = FunctionArg {..}
   where
     name = p ^. #name
     optional = fmap not $ p ^. #required
-    typeReference = fmap schemaToType $ p ^. #schema
+    typeReference = schemaToType =<< (p ^. #schema)
     defaultValue = Nothing
 
 getRequestBodyParameter :: Operation -> [FunctionArg]
@@ -187,7 +187,7 @@ requestBodyToFuncArg (RequestBodyData p) =
     ( \MediaType {schema} ->
         makeFunctionArg
           { name = "requestBody",
-            typeReference = Just $ QualifiedName "M" $ schemaToType schema
+            typeReference = (Just . QualifiedName "M") =<< schemaToType schema
           } ::
           FunctionArg
     )
@@ -200,7 +200,8 @@ getResponseType rs = do
   code200 <- rs M.!? "200"
   content <- code200 ^. #content
   json <- content M.!? "application/json"
-  pure $ QualifiedName "M" $ schemaToType $ json ^. #schema
+  typeRef <- schemaToType (json ^. #schema)
+  pure $ QualifiedName "M" typeRef
 
 getFetchBody :: Text -> Text -> Operation -> Maybe Type -> LambdaBody
 getFetchBody path verb op returnType = LambdaBodyStatements stmts

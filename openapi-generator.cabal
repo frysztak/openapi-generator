@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 369b880b0753d3c7c1fb8955be751489943f24de1cea9559a16006bdc8a8a0c7
+-- hash: 5b9a3188a913b6cd53de156946257179d2384a82fcfeac4d114c4acf1fb78ab0
 
 name:           openapi-generator
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
   exposed-modules:
       Generator
       Generator.Common
+      Generator.Enum
       Generator.Fetch
       Generator.Interface
       Generator.ReactQuery

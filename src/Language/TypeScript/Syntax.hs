@@ -37,6 +37,8 @@ data Type
   | Generic Type [Type]
   | Operation TypeOperation Type Type
   | QualifiedName Text Type
+  | IndexedAccess Type Type
+  | Typeof Type
   deriving (Show, Eq)
 
 data VariableType = Const | Let | Var
@@ -99,8 +101,11 @@ data Expression
   | EAwait Expression
   | ELambda Lambda
   | EObjectLiteral ObjectLiteralExpression
+  | EArrayLiteral [Expression]
   | EPropertyAccess Expression Expression
+  | EElementAccess Expression Expression
   | EAs Expression Type
+  | ETypeOf Expression
   deriving (Show, Eq)
 
 data NewExpression = NewExpression
