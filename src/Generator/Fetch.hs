@@ -9,12 +9,13 @@
 
 module Generator.Fetch where
 
-import Control.Lens hiding (Const)
+import Control.Lens ((^.))
+import Control.Monad.Reader
 import Data.Default
 import qualified Data.Map.Strict as M
-import Data.Maybe (catMaybes, fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Text (Text, toUpper)
-import Generator (GenerateAST, Generator, genAST)
+import Generator
 import Generator.Common (getOperationName, makeIndexModule, mapMaybeArray, schemaToType)
 import Language.TypeScript
 import OpenAPI
@@ -37,73 +38,79 @@ instance GenerateAST OpenAPI [Module] where
     where
       importModels = GlobalImport $ NamespaceImport "M" "./models"
       importCommon = GlobalImport $ NamedImport ["buildUrl", "buildHeaders"] "../common"
+      configInterface = Export $ GlobalInterface $ makeFetchConfigInterface openApi
 
-      configInterface =
-        Export . GlobalInterface $
-          InterfaceDeclaration
-            { name = "ClientConfig",
-              extends = Nothing,
-              properties =
-                M.fromList
-                  [ (StringKey "baseUrl", String)
-                  ]
-            }
-
-      functions = genAST $ openApi ^. #paths
+      functions =
+        runReader
+          genAST'
+          (makeEnv openApi (openApi ^. #paths))
       functions' = [Export . GlobalVar] <*> functions
 
       common =
         [ (Export . GlobalFunc) makeBuildUrlFunc,
-          (Export . GlobalFunc) makeBuildHeadersFunc,
+          (Export . GlobalFunc) $ runReader makeBuildHeadersFunc $ makeEnv openApi (),
           GlobalFunc makePopulateEndpointPathParamsFunc
         ]
 
-instance GenerateAST Paths [VariableDeclaration] where
-  genAST paths = concat . M.elems $ M.mapWithKey (curry genAST) paths
+instance GenerateAST' Paths [VariableDeclaration] where
+  genAST' = do
+    (openApi, paths) <- askEnv
+    pure $
+      concat . M.elems $
+        M.mapWithKey (\k v -> runReader genAST' $ makeEnv openApi (k, v)) paths
 
-instance GenerateAST (Text, PathItem) [VariableDeclaration] where
-  genAST (endpoint, item) = catMaybes [get', post', put', delete']
+instance GenerateAST' (Text, PathItem) [VariableDeclaration] where
+  genAST' = do
+    (openApi, (endpoint, item)) <- askEnv
+
+    let gen' = gen openApi endpoint
+    let get' = gen' "get" <$> item ^. #get
+    let post' = gen' "post" <$> item ^. #post
+    let put' = gen' "put" <$> item ^. #put
+    let delete' = gen' "delete" <$> item ^. #delete
+
+    pure $ catMaybes [get', post', put', delete']
     where
-      get' = gen "get" <$> item ^. #get
-      post' = gen "post" <$> item ^. #post
-      put' = gen "put" <$> item ^. #put
-      delete' = gen "delete" <$> item ^. #delete
+      gen :: OpenAPI -> Text -> Text -> Operation -> VariableDeclaration
+      gen openApi endpoint verb op = runReader genAST' $ makeEnv openApi (endpoint, verb, op)
 
-      gen :: Text -> Operation -> VariableDeclaration
-      gen verb op = genAST (endpoint, verb, op)
+instance GenerateAST' (Text, Text, Operation) VariableDeclaration where
+  genAST' = do
+    (openApi, (endpoint, verb, op)) <- askEnv
 
-instance GenerateAST (Text, Text, Operation) VariableDeclaration where
-  genAST (endpoint, verb, op) = VariableDeclaration {..}
-    where
-      variableType = Const
-      identifier = VariableName $ getOperationName endpoint verb op
-      typeReference = Nothing
-      fetchConfigLambda = \e ->
-        ELambda $
-          Lambda
-            { async = Just False,
-              args =
-                [ makeFunctionArg
-                    { name = "config",
-                      typeReference = Just $ TypeRef "ClientConfig"
-                    }
-                ],
-              body = LambdaBodyExpr e,
-              returnType = Nothing
-            }
+    let fetchConfigLambda = \e ->
+          ELambda $
+            Lambda
+              { async = Just False,
+                args =
+                  [ makeFunctionArg
+                      { name = "config",
+                        typeReference = Just $ TypeRef "ClientConfig"
+                      }
+                  ],
+                body = LambdaBodyExpr e,
+                returnType = Nothing
+              }
 
-      returnType' = getResponseType $ op ^. #responses
-      returnType'' = fmap (\t -> Generic (TypeRef "Promise") [t]) returnType'
+    let returnType' = getResponseType $ op ^. #responses
+    let returnType'' = fmap (\t -> Generic (TypeRef "Promise") [t]) returnType'
 
-      fetchLambda =
-        ELambda $
-          Lambda
-            { async = Nothing,
-              args = getParameters op,
-              returnType = returnType'',
-              body = getFetchBody endpoint verb op returnType'
-            }
-      initialValue = Just $ fetchConfigLambda fetchLambda
+    let fetchLambda =
+          ELambda $
+            Lambda
+              { async = Nothing,
+                args = getParameters op,
+                returnType = returnType'',
+                body = runReader getFetchBody $ makeEnv openApi (endpoint, verb, op, returnType')
+              }
+
+    pure $
+      VariableDeclaration
+        { variableType = Const,
+          identifier = VariableName $ getOperationName endpoint verb op,
+          typeReference = Nothing,
+          initialValue = Just $ fetchConfigLambda fetchLambda
+        }
 
 getParameters :: Operation -> [FunctionArg]
 getParameters op = map getParameter parameters' ++ requestBodyParam
@@ -118,7 +125,7 @@ getParametersAtLocation op loc = parameters'
     parameters' =
       filter
         ( \case
-            ParameterData param -> location param == loc
+            ParameterData Parameter {location} -> location == loc
             _ -> False -- TODO?
         )
         parameters
@@ -203,8 +210,115 @@ getResponseType rs = do
   typeRef <- schemaToType (json ^. #schema)
   pure $ QualifiedName "M" typeRef
 
-getFetchBody :: Text -> Text -> Operation -> Maybe Type -> LambdaBody
-getFetchBody path verb op returnType = LambdaBodyStatements stmts
+getFetchBody :: Reader (Env (Text, Text, Operation, Maybe Type)) LambdaBody
+getFetchBody = do
+  (openApi, (path, verb, op, returnType)) <- askEnv
+  let useBearer = usesBearerToken openApi
+  let bearerToken =
+        mapTrue
+          ( VariableBindingElement
+              { identifier = "bearerToken",
+                bindingPattern = Nothing,
+                initialValue = Nothing
+              }
+          )
+          useBearer
+  let buildHeadersBearerArg = mapTrue (EVarRef "bearerToken") useBearer
+
+  let baseUrl =
+        makeVariableDeclaration
+          { identifier =
+              VariableBinding
+                ( VariableBindingElement
+                    { identifier = "baseUrl",
+                      bindingPattern = Nothing,
+                      initialValue = Nothing
+                    } :
+                  bearerToken
+                ),
+            typeReference = Nothing,
+            initialValue = Just $ EVarRef "config"
+          }
+  let url =
+        makeVariableDeclaration
+          { identifier = VariableName "url",
+            typeReference = Nothing,
+            initialValue =
+              Just
+                ( EFunctionCall
+                    (EVarRef "buildUrl")
+                    ( [ EVarRef "baseUrl",
+                        EString path
+                      ]
+                        ++ getPathQueryParameters op
+                    )
+                )
+          }
+
+  let signalArg = ShorthandPropertyAssignment "signal"
+
+  let methodArg =
+        PropertyAssignment
+          (PropertyExplicitName "method")
+          (EString $ toUpper verb)
+  let headersArg =
+        PropertyAssignment
+          (PropertyExplicitName "headers")
+          ( EFunctionCall
+              (EVarRef "buildHeaders")
+              (buildHeadersBearerArg ++ catMaybes [getParametersObject "header" op])
+          )
+  let dataArg = case op ^. #requestBody of
+        Just _ ->
+          [ PropertyAssignment
+              (PropertyExplicitName "body")
+              ( EFunctionCall
+                  ( EPropertyAccess (EVarRef "JSON") (EVarRef "stringify")
+                  )
+                  [EVarRef "requestBody"]
+              )
+          ]
+        Nothing -> []
+
+  let fetch =
+        StatementVar $
+          makeVariableDeclaration
+            { identifier = VariableName "response",
+              initialValue =
+                Just $
+                  EAwait $
+                    EFunctionCall
+                      (EVarRef "fetch")
+                      [ EVarRef "url",
+                        EObjectLiteral
+                          ( [ signalArg,
+                              methodArg,
+                              headersArg
+                            ]
+                              ++ dataArg
+                          )
+                      ]
+            }
+  let promise =
+        makeVariableDeclaration
+          { identifier = VariableName "promise",
+            typeReference = Nothing,
+            initialValue =
+              Just $
+                makePromise
+                  returnType
+                  [ makeTryCatch
+                      [ fetch,
+                        json,
+                        checkResponse,
+                        resolve
+                      ]
+                      [ reject
+                      ]
+                  ]
+          }
+  let vars = [StatementVar] <*> [controller, signal, baseUrl, url, promise]
+  pure $ LambdaBodyStatements (vars <> [cancel, return])
   where
     controller =
       makeVariableDeclaration
@@ -227,126 +341,33 @@ getFetchBody path verb op returnType = LambdaBodyStatements stmts
           initialValue = Just $ EVarRef "controller"
         }
 
-    baseUrl =
-      makeVariableDeclaration
-        { identifier =
-            VariableBinding
-              [ VariableBindingElement
-                  { identifier = "baseUrl",
-                    bindingPattern = Nothing,
-                    initialValue = Nothing
-                  }
+    json =
+      StatementVar $
+        makeVariableDeclaration
+          { identifier = VariableName "json",
+            initialValue = Just $ EAwait $ EFunctionCall (EPropertyAccess (EVarRef "response") (EVarRef "json")) []
+          }
+
+    checkResponse =
+      StatementIf $
+        IfStatement
+          { condition = EUnaryOp Not (EPropertyAccess (EVarRef "response") (EVarRef "ok")),
+            thenBlock =
+              [ StatementExpr $
+                  EFunctionCall
+                    (EVarRef "reject")
+                    [ EObjectLiteral
+                        [ ShorthandPropertyAssignment "response",
+                          PropertyAssignment (PropertyExplicitName "body") (EVarRef "json")
+                        ]
+                    ]
               ],
-          typeReference = Nothing,
-          initialValue = Just $ EVarRef "config"
-        }
+            elseIf = Nothing,
+            elseBlock = Nothing
+          }
 
-    url =
-      makeVariableDeclaration
-        { identifier = VariableName "url",
-          typeReference = Nothing,
-          initialValue =
-            Just
-              ( EFunctionCall
-                  (EVarRef "buildUrl")
-                  ( [ EVarRef "baseUrl",
-                      EString path
-                    ]
-                      ++ getPathQueryParameters op
-                  )
-              )
-        }
-
-    promise =
-      makeVariableDeclaration
-        { identifier = VariableName "promise",
-          typeReference = Nothing,
-          initialValue =
-            Just $
-              makePromise
-                returnType
-                [ makeTryCatch
-                    [ fetch,
-                      json,
-                      checkResponse,
-                      resolve
-                    ]
-                    [ reject
-                    ]
-                ]
-        }
-      where
-        fetch =
-          StatementVar $
-            makeVariableDeclaration
-              { identifier = VariableName "response",
-                initialValue =
-                  Just $
-                    EAwait $
-                      EFunctionCall
-                        (EVarRef "fetch")
-                        [ EVarRef "url",
-                          EObjectLiteral
-                            ( [ signalArg,
-                                methodArg,
-                                headersArg
-                              ]
-                                ++ dataArg
-                            )
-                        ]
-              }
-          where
-            signalArg = ShorthandPropertyAssignment "signal"
-            methodArg =
-              PropertyAssignment
-                (PropertyExplicitName "method")
-                (EString $ toUpper verb)
-            headersArg =
-              PropertyAssignment
-                (PropertyExplicitName "headers")
-                ( EFunctionCall
-                    (EVarRef "buildHeaders")
-                    (catMaybes [getParametersObject "header" op])
-                )
-            dataArg = case op ^. #requestBody of
-              Just _ ->
-                [ PropertyAssignment
-                    (PropertyExplicitName "body")
-                    ( EFunctionCall
-                        ( EPropertyAccess (EVarRef "JSON") (EVarRef "stringify")
-                        )
-                        [EVarRef "requestBody"]
-                    )
-                ]
-              Nothing -> []
-
-        json =
-          StatementVar $
-            makeVariableDeclaration
-              { identifier = VariableName "json",
-                initialValue = Just $ EAwait $ EFunctionCall (EPropertyAccess (EVarRef "response") (EVarRef "json")) []
-              }
-
-        checkResponse =
-          StatementIf $
-            IfStatement
-              { condition = EUnaryOp Not (EPropertyAccess (EVarRef "response") (EVarRef "ok")),
-                thenBlock =
-                  [ StatementExpr $
-                      EFunctionCall
-                        (EVarRef "reject")
-                        [ EObjectLiteral
-                            [ ShorthandPropertyAssignment "response",
-                              PropertyAssignment (PropertyExplicitName "body") (EVarRef "json")
-                            ]
-                        ]
-                  ],
-                elseIf = Nothing,
-                elseBlock = Nothing
-              }
-
-        resolve = StatementExpr $ EFunctionCall (EVarRef "resolve") [EVarRef "json"]
-        reject = StatementExpr $ EFunctionCall (EVarRef "reject") [EVarRef "err"]
+    resolve = StatementExpr $ EFunctionCall (EVarRef "resolve") [EVarRef "json"]
+    reject = StatementExpr $ EFunctionCall (EVarRef "reject") [EVarRef "err"]
 
     cancel =
       StatementExpr $
@@ -366,9 +387,6 @@ getFetchBody path verb op returnType = LambdaBodyStatements stmts
                 }
           )
     return = Return $ EVarRef "promise"
-
-    vars = [StatementVar] <*> [controller, signal, baseUrl, url, promise]
-    stmts = vars <> [cancel, return]
 
 makePopulateEndpointPathParamsFunc :: FunctionDef
 makePopulateEndpointPathParamsFunc =
@@ -493,57 +511,96 @@ makeBuildUrlFunc =
         ]
     }
 
-makeBuildHeadersFunc :: FunctionDef
-makeBuildHeadersFunc =
-  FunctionDef
-    { name = "buildHeaders",
-      async = Nothing,
-      args =
-        [ makeFunctionArg
-            { name = "headerParams",
-              optional = Just True,
-              typeReference = Just $ Generic (TypeRef "Record") [String, String]
-            }
-        ],
-      returnType = Just $ Generic (TypeRef "Record") [String, String],
-      body =
-        [ Return $
-            EFunctionCall
-              (EPropertyAccess (makeEntriesCall "headerParams") (EVarRef "reduce"))
-              [ ELambda $
-                  makeLambda
-                    { args =
-                        [ makeFunctionArg {name = "headers"},
-                          makeFunctionArg {name = "headerParam"}
-                        ],
-                      body =
-                        LambdaBodyStatements
-                          [ StatementVar $
-                              makeVariableDeclaration
-                                { identifier =
-                                    VariableArrayBinding
-                                      [ VariableArrayBindingElement {identifier = "name", initialValue = Nothing},
-                                        VariableArrayBindingElement {identifier = "value", initialValue = Nothing}
-                                      ],
-                                  initialValue = Just $ EVarRef "headerParam"
-                                },
-                            Return $
-                              EObjectLiteral
-                                [ SpreadAssignment "headers",
-                                  PropertyAssignment
-                                    (PropertyComputedName "name")
-                                    (EVarRef "value")
-                                ]
-                          ]
-                    },
-                EObjectLiteral
-                  [ PropertyAssignment
-                      (PropertyExplicitName "Content-Type")
-                      (EString "application/json; charset=UTF-8")
-                  ]
-              ]
-        ]
+makeBuildHeadersFunc :: Reader (Env ()) FunctionDef
+makeBuildHeadersFunc = do
+  openApi <- askOpenApi
+  let useBearer = usesBearerToken openApi
+  let bearerFunctionArg =
+        mapTrue
+          ( makeFunctionArg
+              { name = "bearerToken",
+                optional = Just True,
+                typeReference = Just String
+              } ::
+              FunctionArg
+          )
+          useBearer
+  let initialBearerHeader =
+        mapTrue
+          ( PropertyAssignment
+              (PropertyExplicitName "Authorization")
+              (EBinaryOp Add (EString "Bearer ") (EVarRef "bearerToken"))
+          )
+          useBearer
+  pure $
+    FunctionDef
+      { name = "buildHeaders",
+        async = Nothing,
+        args =
+          bearerFunctionArg
+            ++ [ makeFunctionArg
+                   { name = "headerParams",
+                     optional = Just True,
+                     typeReference = Just $ Generic (TypeRef "Record") [String, String]
+                   } ::
+                   FunctionArg
+               ],
+        returnType = Just $ Generic (TypeRef "Record") [String, String],
+        body =
+          [ Return $
+              EFunctionCall
+                (EPropertyAccess (makeEntriesCall "headerParams") (EVarRef "reduce"))
+                [ ELambda $
+                    makeLambda
+                      { args =
+                          [ makeFunctionArg {name = "headers"},
+                            makeFunctionArg {name = "headerParam"}
+                          ],
+                        body =
+                          LambdaBodyStatements
+                            [ StatementVar $
+                                makeVariableDeclaration
+                                  { identifier =
+                                      VariableArrayBinding
+                                        [ VariableArrayBindingElement {identifier = "name", initialValue = Nothing},
+                                          VariableArrayBindingElement {identifier = "value", initialValue = Nothing}
+                                        ],
+                                    initialValue = Just $ EVarRef "headerParam"
+                                  },
+                              Return $
+                                EObjectLiteral
+                                  [ SpreadAssignment "headers",
+                                    PropertyAssignment
+                                      (PropertyComputedName "name")
+                                      (EVarRef "value")
+                                  ]
+                            ]
+                      },
+                  EObjectLiteral
+                    ( PropertyAssignment
+                        (PropertyExplicitName "Content-Type")
+                        (EString "application/json; charset=UTF-8") :
+                      initialBearerHeader
+                    )
+                ]
+          ]
+      }
+
+makeFetchConfigInterface :: OpenAPI -> InterfaceDeclaration
+makeFetchConfigInterface openApi =
+  InterfaceDeclaration
+    { name = "ClientConfig",
+      extends = Nothing,
+      properties =
+        M.fromList
+          ( (StringKey "baseUrl", String) : bearerToken
+          )
     }
+  where
+    bearerToken =
+      mapTrue
+        (StringKey "bearerToken", Language.TypeScript.Operation Union String Undefined)
+        (usesBearerToken openApi)
 
 --- helpers
 makePromise :: Maybe Type -> [Statement] -> Expression
@@ -633,3 +690,13 @@ wrapInCurlyBrackets name =
     (EString "{")
     ( EBinaryOp Add (EVarRef name) (EString "}")
     )
+
+usesBearerToken :: OpenAPI -> Bool
+usesBearerToken openApi = do
+  let components = openApi ^. #components
+  let securitySchemes = (^. #securitySchemes) =<< components
+  isJust $ M.lookup "Bearer" =<< securitySchemes
+
+mapTrue :: a -> Bool -> [a]
+mapTrue f True = [f]
+mapTrue f _ = []

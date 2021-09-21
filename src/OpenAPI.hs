@@ -219,13 +219,43 @@ data Components = Components
     responses :: Maybe (M.Map Text ResponseOrReference),
     parameters :: Maybe (M.Map Text ParameterOrReference),
     -- examples
-    requestBodies :: Maybe (M.Map Text RequestBodyOrReference)
+    requestBodies :: Maybe (M.Map Text RequestBodyOrReference),
     -- headers
-    -- securitySchemes
+    securitySchemes :: Maybe (M.Map Text SecuritySchemeOrReference)
     -- links
     -- callbacks
   }
   deriving (Generic, FromJSON, Show)
+
+data SecuritySchemeOrReference = SecuritySchemeReference Reference | SecuritySchemeData SecurityScheme
+  deriving (Generic, Show)
+
+instance FromJSON SecuritySchemeOrReference where
+  parseJSON =
+    genericParseJSON
+      defaultOptions
+        { sumEncoding = UntaggedValue
+        }
+
+data SecurityScheme = SecurityScheme
+  { schemeType :: Text,
+    name :: Text,
+    -- "in" field
+    location :: Text,
+    scheme :: Maybe Text
+  }
+  deriving (Generic, Show)
+
+instance FromJSON SecurityScheme where
+  parseJSON = withObject "parameter" $ \o -> do
+    schemeType <- o .: "type"
+    name <- o .: "name"
+    location <- o .: "in"
+    when (location /= "query" && location /= "header" && location /= "cookie") $
+      prependFailure "parsing SecurityScheme failed - " $
+        fail (unpack $ "'location' value '" <> location <> "' is invalid. allowed values: 'query'/'header'/'cookie'")
+    scheme <- o .:? "scheme"
+    return SecurityScheme {..}
 
 renameField :: Text -> Text -> (Text -> Text)
 renameField dst src x = case x of
