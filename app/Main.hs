@@ -5,6 +5,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -14,14 +15,17 @@ import Control.Monad
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (unpack)
 import Data.Text.IO (writeFile)
+import Data.Version (showVersion)
 import Generator (generate)
 import Generator.Enum
 import Generator.Fetch
 import Generator.Interface
+import GitHash
 import Language.TypeScript.Printer (pprint)
 import Language.TypeScript.Syntax (fileName)
 import OpenAPI (decodeOpenApi)
 import Options.Applicative
+import Paths_openapi_generator (version)
 import System.Directory
 import System.Exit (die)
 import System.FilePath (takeBaseName, (</>))
@@ -59,12 +63,15 @@ cliParser =
       )
 
 main :: IO ()
-main = runGenerator =<< execParser opts
+main = do
+  options <- execParser opts
+  runGenerator options
   where
     opts =
       info
         (cliParser <**> helper)
-        (fullDesc <> header "OpenAPI client generator")
+        (fullDesc <> header ("OpenAPI client generator v" ++ showVersion version ++ " (" ++ giHash gi ++ ")"))
+    gi = $$tGitInfoCwd
 
 runGenerator :: CLIArgs -> IO ()
 runGenerator CLIArgs {input, outputDir} = do

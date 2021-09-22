@@ -35,6 +35,7 @@ dependencies:
 - filepath
 - directory
 - mtl
+- githash
 
 library:
   source-dirs: 

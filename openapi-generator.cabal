@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3cd0f8108a1ae8769f8a7c78786329ed6aa73ffe0d821033663060011299736f
+-- hash: 3fa6eddecddb973faa04725ad82fdadff25864b8557b6330158072c5aee84231
 
 name:           openapi-generator
 version:        0.1.0
@@ -50,6 +50,7 @@ library
     , directory
     , filepath
     , generic-lens
+    , githash
     , hspec
     , lens
     , mtl
@@ -75,6 +76,7 @@ executable openapi-generator
     , directory
     , filepath
     , generic-lens
+    , githash
     , hspec
     , lens
     , mtl
@@ -103,6 +105,7 @@ test-suite spec
     , directory
     , filepath
     , generic-lens
+    , githash
     , hspec ==2.*
     , lens
     , mtl
