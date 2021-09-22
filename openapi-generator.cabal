@@ -4,15 +4,15 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6dadf35bdca1c6228ddee622fdedfc8146095ebc49bcfdc3d9944efc1dffecd9
+-- hash: 3cd0f8108a1ae8769f8a7c78786329ed6aa73ffe0d821033663060011299736f
 
 name:           openapi-generator
-version:        0.1.0.0
+version:        0.1.0
 description:    Please see the README on GitHub at <https://github.com/githubuser/openapi-generator#readme>
 homepage:       https://github.com/frysztak/openapi-generator#readme
 bug-reports:    https://github.com/frysztak/openapi-generator/issues
 author:         Sebastian Frysztak
-maintainer:     sebastian.frysztak@gmail.com
+maintainer:     sebastian@frysztak.dev
 copyright:      2021 Sebastian Frysztak
 license:        BSD3
 license-file:   LICENSE
@@ -59,7 +59,7 @@ library
     , text
   default-language: Haskell2010
 
-executable openapi-generator-exe
+executable openapi-generator
   main-is: Main.hs
   other-modules:
       Paths_openapi_generator

@@ -1,9 +1,9 @@
 name:                openapi-generator
-version:             0.1.0.0
+version:             0.1.0
 github:              "frysztak/openapi-generator"
 license:             BSD3
 author:              "Sebastian Frysztak"
-maintainer:          "sebastian.frysztak@gmail.com"
+maintainer:          "sebastian@frysztak.dev"
 copyright:           "2021 Sebastian Frysztak"
 
 extra-source-files:
@@ -41,7 +41,7 @@ library:
     - src
 
 executables:
-  openapi-generator-exe:
+  openapi-generator:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -57,12 +57,3 @@ tests:
     defaults: hspec/hspec@master
     dependencies: 
      - openapi-generator
-  #openapi-generator-test:
-  #  main:                OpenAPISpec.hs
-  #  source-dirs:         test
-  #  ghc-options:
-  #  - -threaded
-  #  - -rtsopts
-  #  - -with-rtsopts=-N
-  #  dependencies:
-  #  - openapi-generator
