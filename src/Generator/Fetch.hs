@@ -47,10 +47,11 @@ instance GenerateAST OpenAPI [Module] where
       functions' = [Export . GlobalVar] <*> functions
 
       common =
-        [ (Export . GlobalFunc) makeBuildUrlFunc,
-          (Export . GlobalFunc) $ runReader makeBuildHeadersFunc $ makeEnv openApi (),
-          GlobalFunc makePopulateEndpointPathParamsFunc
-        ]
+        makeTypeAliases
+          ++ [ (Export . GlobalFunc) makeBuildUrlFunc,
+               (Export . GlobalFunc) $ runReader makeBuildHeadersFunc $ makeEnv openApi (),
+               GlobalFunc makePopulateEndpointPathParamsFunc
+             ]
 
 instance GenerateAST' Paths [VariableDeclaration] where
   genAST' = do
@@ -401,7 +402,7 @@ makePopulateEndpointPathParamsFunc =
           makeFunctionArg
             { name = "pathParams",
               optional = Just True,
-              typeReference = Just $ Generic (TypeRef "Record") [String, String]
+              typeReference = Just $ TypeRef "PathParams"
             }
         ],
       returnType = Just String,
@@ -429,13 +430,25 @@ makePopulateEndpointPathParamsFunc =
                             Return $
                               EFunctionCall
                                 (EPropertyAccess (EVarRef "populatedEndpoint") (EVarRef "replace"))
-                                [wrapInCurlyBrackets "name", EVarRef "value"]
+                                [wrapInCurlyBrackets "name", EFunctionCall (EVarRef "String") [EVarRef "value"]]
                           ]
                     },
                 EVarRef "endpoint"
               ]
         ]
     }
+
+makeTypeAliases :: [Global]
+makeTypeAliases =
+  [ GlobalTypeAlias
+      "PathParams"
+      (Generic (TypeRef "Record") [String, union])
+  ]
+  where
+    union =
+      foldl1
+        (Language.TypeScript.Operation Union)
+        [String, Number, Boolean]
 
 makeBuildUrlFunc :: FunctionDef
 makeBuildUrlFunc =
@@ -454,7 +467,7 @@ makeBuildUrlFunc =
           makeFunctionArg
             { name = "pathParams",
               optional = Just True,
-              typeReference = Just $ Generic (TypeRef "Record") [String, String]
+              typeReference = Just $ TypeRef "PathParams"
             },
           makeFunctionArg
             { name = "queryParams",
