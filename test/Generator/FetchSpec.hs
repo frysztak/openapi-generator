@@ -173,3 +173,26 @@ spec = do
 
       let responseType = getResponseType =<< responses
       responseType `shouldBe` Just (List $ List (QualifiedName "M" (TypeRef "Pet")))
+
+  describe "sortFunctionArgs" $ do
+    it "can sort args" $ do
+      let makeArg = \name optional ->
+            FunctionArg
+              { name = name,
+                optional = optional,
+                typeReference = Nothing,
+                defaultValue = Nothing
+              }
+      let args =
+            [ makeArg "arg1" (Just True),
+              makeArg "arg2" Nothing,
+              makeArg "arg3" (Just True),
+              makeArg "arg4" (Just False)
+            ]
+      let result = sortFunctionArgs args
+      result
+        `shouldBe` [ makeArg "arg2" Nothing,
+                     makeArg "arg4" (Just False),
+                     makeArg "arg1" (Just True),
+                     makeArg "arg3" (Just True)
+                   ]

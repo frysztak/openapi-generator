@@ -12,6 +12,7 @@ module Generator.Fetch where
 import Control.Lens ((^.))
 import Control.Monad.Reader
 import Data.Default
+import Data.List (sortBy)
 import qualified Data.Map.Strict as M
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Text (Text, toUpper)
@@ -114,10 +115,20 @@ instance GenerateAST' (Text, Text, Operation) VariableDeclaration where
         }
 
 getParameters :: Operation -> [FunctionArg]
-getParameters op = map getParameter parameters' ++ requestBodyParam
+getParameters op = sortFunctionArgs $ map getParameter parameters' ++ requestBodyParam
   where
     parameters' = mapMaybeArray $ op ^. #parameters
     requestBodyParam = getRequestBodyParameter op
+
+sortFunctionArgs :: [FunctionArg] -> [FunctionArg]
+sortFunctionArgs =
+  sortBy
+    ( \a b -> case (a ^. #optional, b ^. #optional) of
+        (Just True, Just True) -> Prelude.EQ
+        (Just False, Just True) -> Prelude.LT
+        (Just True, _) -> Prelude.GT
+        (_, _) -> Prelude.EQ
+    )
 
 getParametersAtLocation :: Operation -> Text -> [ParameterOrReference]
 getParametersAtLocation op loc = parameters'

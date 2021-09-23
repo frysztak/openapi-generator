@@ -1,9 +1,11 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module Language.TypeScript.Syntax where
 
 import Data.Map.Strict (Map)
 import Data.Text (Text)
+import GHC.Generics
 
 data ObjectKey
   = StringKey Text
@@ -174,7 +176,7 @@ data FunctionArg = FunctionArg
     typeReference :: Maybe Type,
     defaultValue :: Maybe Expression
   }
-  deriving (Show, Eq)
+  deriving (Generic, Show, Eq)
 
 data FunctionDef = FunctionDef
   { name :: Text,
