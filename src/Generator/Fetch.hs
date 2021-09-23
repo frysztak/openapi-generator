@@ -208,8 +208,14 @@ getResponseType rs = do
   code200 <- rs M.!? "200"
   content <- code200 ^. #content
   json <- content M.!? "application/json"
-  typeRef <- schemaToType (json ^. #schema)
-  pure $ QualifiedName "M" typeRef
+  type' <- schemaToType (json ^. #schema)
+
+  pure $ rewriteImportedTypes type'
+  where
+    rewriteImportedTypes :: Type -> Type
+    rewriteImportedTypes (TypeRef t) = QualifiedName "M" $ TypeRef t
+    rewriteImportedTypes (List t) = List $ rewriteImportedTypes t
+    rewriteImportedTypes t = t
 
 getFetchBody :: Reader (Env (Text, Text, Operation, Maybe Type)) LambdaBody
 getFetchBody = do

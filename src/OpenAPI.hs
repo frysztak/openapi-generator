@@ -52,7 +52,7 @@ data Response = Response
     content :: Maybe (M.Map Text MediaType)
     -- links
   }
-  deriving (Generic, FromJSON, Show)
+  deriving (Generic, FromJSON, Show, Eq)
 
 type Responses = M.Map Text Response
 
@@ -210,7 +210,7 @@ instance FromJSON ParameterOrReference where
 data MediaType = MediaType
   { schema :: SchemaOrReference
   }
-  deriving (Generic, FromJSON, Show)
+  deriving (Generic, FromJSON, Show, Eq)
 
 type Schemas = M.Map Text SchemaOrReference
 

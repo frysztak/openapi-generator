@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3fa6eddecddb973faa04725ad82fdadff25864b8557b6330158072c5aee84231
+-- hash: f3a04b0a553558e29e9b9309aa9ef30739d7a3d60d3d9a3bc50ec629a4b1aeea
 
 name:           openapi-generator
 version:        0.1.0
@@ -92,6 +92,7 @@ test-suite spec
   main-is: Spec.hs
   other-modules:
       Generator.CommonSpec
+      Generator.FetchSpec
       OpenAPISpec
       Paths_openapi_generator
   hs-source-dirs:
