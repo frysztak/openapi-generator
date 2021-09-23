@@ -39,7 +39,11 @@ instance GenerateAST SchemaOrReference (Maybe Type) where
       type' = case schema ^. #itemType of
         "string" -> case schema ^. #enum of
           Nothing -> Just String
-          Just enumValues -> Nothing
+          Just enumValues ->
+            Just $
+              foldl1
+                (Language.TypeScript.Syntax.Operation Union)
+                (Prelude.map StringLiteral enumValues)
         "object" ->
           Just $ Object objProps
           where
