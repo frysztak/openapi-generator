@@ -239,9 +239,9 @@ instance FromJSON SecuritySchemeOrReference where
 
 data SecurityScheme = SecurityScheme
   { schemeType :: Text,
-    name :: Text,
+    name :: Maybe Text,
     -- "in" field
-    location :: Text,
+    location :: Maybe Text,
     scheme :: Maybe Text
   }
   deriving (Generic, Show)
@@ -249,11 +249,14 @@ data SecurityScheme = SecurityScheme
 instance FromJSON SecurityScheme where
   parseJSON = withObject "parameter" $ \o -> do
     schemeType <- o .: "type"
-    name <- o .: "name"
-    location <- o .: "in"
-    when (location /= "query" && location /= "header" && location /= "cookie") $
-      prependFailure "parsing SecurityScheme failed - " $
-        fail (unpack $ "'location' value '" <> location <> "' is invalid. allowed values: 'query'/'header'/'cookie'")
+    name <- o .:? "name"
+    location <- o .:? "in"
+    case location of
+      Just loc ->
+        when (loc /= "query" && loc /= "header" && loc /= "cookie") $
+          prependFailure "parsing SecurityScheme failed - " $
+            fail (unpack $ "'location' value '" <> loc <> "' is invalid. allowed values: 'query'/'header'/'cookie'")
+      _ -> pure ()
     scheme <- o .:? "scheme"
     return SecurityScheme {..}
 
