@@ -495,13 +495,16 @@ makeTypeAliases :: [Global]
 makeTypeAliases =
   [ GlobalTypeAlias
       "PathParams"
-      (Generic (TypeRef "Record") [String, union])
+      (Generic (TypeRef "Record") [String, makeUnion [String, Number, Boolean]]),
+    GlobalTypeAlias
+      "QueryParams"
+      (Generic (TypeRef "Record") [String, makeUnion [String, Number, Boolean, List String, List Number, List Boolean]])
   ]
   where
-    union =
+    makeUnion :: [Type] -> Type
+    makeUnion =
       foldl1
         (Language.TypeScript.Operation Union)
-        [String, Number, Boolean]
 
 makeBuildUrlFunc :: FunctionDef
 makeBuildUrlFunc =
@@ -525,7 +528,7 @@ makeBuildUrlFunc =
           makeFunctionArg
             { name = "queryParams",
               optional = Just True,
-              typeReference = Just $ Generic (TypeRef "Record") [String, String]
+              typeReference = Just $ TypeRef "QueryParams"
             }
         ],
       returnType = Just String,
@@ -553,6 +556,43 @@ makeBuildUrlFunc =
                           }
                       )
               },
+          StatementVar $
+            makeVariableDeclaration
+              { identifier = VariableName "stringifiedQueryParams",
+                typeReference = Just $ Generic (TypeRef "Record") [String, String],
+                initialValue =
+                  Just $
+                    EFunctionCall
+                      (EPropertyAccess (makeEntriesCall "queryParams") (EVarRef "reduce"))
+                      [ ELambda $
+                          makeLambda
+                            { args =
+                                [ makeFunctionArg {name = "acc"},
+                                  makeFunctionArg {name = "queryParam"}
+                                ],
+                              body =
+                                LambdaBodyStatements
+                                  [ StatementVar $
+                                      makeVariableDeclaration
+                                        { identifier =
+                                            VariableArrayBinding
+                                              [ VariableArrayBindingElement {identifier = "name", initialValue = Nothing},
+                                                VariableArrayBindingElement {identifier = "value", initialValue = Nothing}
+                                              ],
+                                          initialValue = Just $ EVarRef "queryParam"
+                                        },
+                                    Return $
+                                      EObjectLiteral
+                                        [ SpreadAssignment "acc",
+                                          PropertyAssignment
+                                            (PropertyComputedName "name")
+                                            (EFunctionCall (EVarRef "String") [EVarRef "value"])
+                                        ]
+                                  ]
+                            },
+                        EObjectLiteral []
+                      ]
+              },
           StatementExpr $
             EBinaryOp
               Assignment
@@ -563,7 +603,7 @@ makeBuildUrlFunc =
                           NewExpression
                             { constructor = "URLSearchParams",
                               typeArguments = [],
-                              arguments = [EVarRef "queryParams"]
+                              arguments = [EVarRef "stringifiedQueryParams"]
                             }
                       )
                       (EVarRef "toString")
