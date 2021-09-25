@@ -87,10 +87,10 @@ data RequestBody = RequestBody
     required :: Maybe Bool,
     content :: M.Map Text MediaType
   }
-  deriving (Generic, FromJSON, Show)
+  deriving (Generic, FromJSON, Show, Eq)
 
 data RequestBodyOrReference = RequestBodyReference Reference | RequestBodyData RequestBody
-  deriving (Generic, Show)
+  deriving (Generic, Show, Eq)
 
 instance FromJSON RequestBodyOrReference where
   parseJSON =

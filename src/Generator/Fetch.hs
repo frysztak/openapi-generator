@@ -17,7 +17,7 @@ import qualified Data.Map.Strict as M
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Text (Text, toUpper)
 import Generator
-import Generator.Common (getOperationName, makeIndexModule, mapMaybeArray, schemaToType)
+import Generator.Common (cleanRef, getOperationName, makeIndexModule, mapMaybeArray, schemaToType)
 import Language.TypeScript
 import OpenAPI
 
@@ -194,25 +194,41 @@ getRequestBodyParameter op = catMaybes [requestBodyToFuncArg =<< parameter']
 
 requestBodyToFuncArg :: RequestBodyOrReference -> Maybe FunctionArg
 requestBodyToFuncArg (RequestBodyReference (Reference ref)) =
-  Just $
-    FunctionArg
-      { name = ref,
-        optional = Just False,
-        typeReference = Just String, -- String?
-        defaultValue = Nothing
-      }
-requestBodyToFuncArg (RequestBodyData p) =
-  fmap
-    ( \MediaType {schema} ->
-        makeFunctionArg
-          { name = "requestBody",
-            typeReference = (Just . QualifiedName "M") =<< schemaToType schema
-          } ::
-          FunctionArg
+  Just
+    ( makeFunctionArg
+        { name = "requestBody",
+          typeReference = Just $ QualifiedName "M" (TypeRef $ cleanRef ref)
+        } ::
+        FunctionArg
     )
-    json
+requestBodyToFuncArg (RequestBodyData p) = case (jsonArg, octetArg) of
+  (_, Just _) -> octetArg
+  (Just _, _) -> jsonArg
+  (Nothing, Nothing) -> error $ "Request body contains '" ++ show (M.keys (p ^. #content)) ++ ", which is not supported.  Only JSON and Octet Stream are supported."
   where
     json = (p ^. #content) M.!? "application/json"
+    jsonArg =
+      fmap
+        ( \MediaType {schema} ->
+            makeFunctionArg
+              { name = "requestBody",
+                typeReference = (Just . QualifiedName "M") =<< schemaToType schema
+              } ::
+              FunctionArg
+        )
+        json
+
+    octet = (p ^. #content) M.!? "application/octet-stream"
+    octetArg =
+      fmap
+        ( \MediaType {schema} ->
+            makeFunctionArg
+              { name = "requestBody",
+                typeReference = Just (TypeRef "Blob")
+              } ::
+              FunctionArg
+        )
+        octet
 
 getResponseType :: Responses -> Maybe Type
 getResponseType rs = do
@@ -279,23 +295,43 @@ getFetchBody = do
         PropertyAssignment
           (PropertyExplicitName "method")
           (EString $ toUpper verb)
+
+  let requestBody = op ^. #requestBody
+  let hasBlobArg = case requestBody of
+        Just reqBody -> case reqBody of
+          RequestBodyData r -> M.member "application/octet-stream" (r ^. #content)
+          _ -> False
+        _ -> False
+  let blobContentType =
+        mapTrue
+          ( EObjectLiteral
+              [ PropertyAssignment
+                  (PropertyExplicitName "Content-Type")
+                  (EString "application/octet-stream")
+              ]
+          )
+          hasBlobArg
   let headersArg =
         PropertyAssignment
           (PropertyExplicitName "headers")
           ( EFunctionCall
               (EVarRef "buildHeaders")
-              (buildHeadersBearerArg ++ catMaybes [getParametersObject "header" op])
+              (buildHeadersBearerArg ++ blobContentType ++ catMaybes [getParametersObject "header" op])
           )
   let dataArg = case op ^. #requestBody of
-        Just _ ->
+        Just reqBody ->
           [ PropertyAssignment
               (PropertyExplicitName "body")
-              ( EFunctionCall
+              bodyValue
+          ]
+          where
+            bodyValue = case hasBlobArg of
+              False ->
+                EFunctionCall
                   ( EPropertyAccess (EVarRef "JSON") (EVarRef "stringify")
                   )
                   [EVarRef "requestBody"]
-              )
-          ]
+              True -> EVarRef "requestBody"
         Nothing -> []
 
   let fetch =
