@@ -62,9 +62,9 @@ instance GenerateAST SchemaOrReference (Maybe Type) where
           Nothing -> error "ItemType 'array' without 'items'"
         x -> Just $ TypeRef x
   genAST (SchemaReference (Reference ref)) = Just $ TypeRef $ cleanRef ref
-    where
-      cleanRef :: Text -> Text
-      cleanRef = last . splitOn "/"
+
+cleanRef :: Text -> Text
+cleanRef = last . splitOn "/"
 
 getOperationName :: Text -> Text -> Operation -> Text
 getOperationName path verb op = fromMaybe name $ op ^. #operationId

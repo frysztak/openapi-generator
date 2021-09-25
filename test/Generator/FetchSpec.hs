@@ -196,3 +196,82 @@ spec = do
                      makeArg "arg1" (Just True),
                      makeArg "arg3" (Just True)
                    ]
+
+  describe "requestBodyToFuncArg" $ do
+    let decodeReqBody = decode :: BS.ByteString -> Maybe RequestBodyOrReference
+
+    it "works with content JSON ref" $ do
+      let reqBody =
+            decodeReqBody
+              [r|
+{
+  "content": {
+    "application/json": {
+      "schema": {
+        "$ref": "#/components/schemas/Order"
+      }
+    }
+  }
+}
+|]
+      reqBody `shouldNotBe` Nothing
+
+      let funcArg = requestBodyToFuncArg =<< reqBody
+      funcArg
+        `shouldBe` Just
+          ( FunctionArg
+              { name = "requestBody",
+                optional = Nothing,
+                typeReference = Just (QualifiedName "M" (TypeRef "Order")),
+                defaultValue = Nothing
+              }
+          )
+
+    it "works with octet stream" $ do
+      let reqBody =
+            decodeReqBody
+              [r|
+{
+  "content": {
+    "application/octet-stream": {
+      "schema": {
+        "type": "string",
+        "format": "binary"
+      }
+    }
+  }
+}
+|]
+      reqBody `shouldNotBe` Nothing
+
+      let funcArg = requestBodyToFuncArg =<< reqBody
+      funcArg
+        `shouldBe` Just
+          ( FunctionArg
+              { name = "requestBody",
+                optional = Nothing,
+                typeReference = Just (TypeRef "Blob"),
+                defaultValue = Nothing
+              }
+          )
+
+    it "works with ref" $ do
+      let reqBody =
+            decodeReqBody
+              [r|
+{
+        "$ref": "#/components/requestBodies/OrderRequestBody"
+}
+|]
+      reqBody `shouldNotBe` Nothing
+
+      let funcArg = requestBodyToFuncArg =<< reqBody
+      funcArg
+        `shouldBe` Just
+          ( FunctionArg
+              { name = "requestBody",
+                optional = Nothing,
+                typeReference = Just (QualifiedName "M" (TypeRef "OrderRequestBody")),
+                defaultValue = Nothing
+              }
+          )
