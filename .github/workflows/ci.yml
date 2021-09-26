@@ -25,40 +25,23 @@ jobs:
     - name: Setup env variables (Linux)
       if: startsWith(matrix.os, 'ubuntu')
       run: |
-        echo "filename=openapi-generator-linux64" >> $GITHUB_ENV
-        echo "binaryPath=${{ github.workspace }}/artifact/openapi-generator-linux64" >> $GITHUB_ENV
+        echo "extension=" >> $GITHUB_ENV
+        echo "filename=openapi-generator-linux-amd64" >> $GITHUB_ENV
+        echo "binaryPath=${{ github.workspace }}/artifact/openapi-generator-linux-amd64" >> $GITHUB_ENV
 
     - name: Setup env variables (MacOS)
       if: startsWith(matrix.os, 'mac')
       run: |
+        echo "extension=" >> $GITHUB_ENV
         echo "filename=openapi-generator-macos-amd64" >> $GITHUB_ENV
         echo "binaryPath=${{ github.workspace }}/artifact/openapi-generator-macos-amd64" >> $GITHUB_ENV
 
     - name: Setup env variables (Windows)
       if: startsWith(matrix.os, 'windows')
       run: |
+        echo "extension=.exe" >> $GITHUB_ENV
         echo "filename=openapi-generator-win64.exe" >> $GITHUB_ENV
         echo "binaryPath=${{ github.workspace }}\artifact\openapi-generator-win64.exe" >> $GITHUB_ENV
-      
-    #- name: Setup variable map
-    #  uses: kanga333/variable-mapper@master
-    #  with:
-    #    key: "${{matrix.os}}"
-    #    map: |
-    #      {
-    #        "ubuntu-latest": {
-    #          "filename": "openapi-generator-linux64",
-    #          "binaryPath": "${{ github.workspace }}/artifact/openapi-generator-linux64"
-    #        },
-    #        "macOS-latest": {
-    #          "filename": "openapi-generator-macos-amd64",
-    #          "binaryPath": "${{ github.workspace }}/artifact/openapi-generator-macos-amd64"
-    #        },
-    #        "windows-latest": {
-    #          "filename": "openapi-generator-win64.exe",
-    #          "binaryPath": "${{ github.workspace }}\\artifact\\openapi-generator-win64.exe"
-    #        }
-    #      }
 
     - uses: actions/setup-haskell@v1.1.4
       name: Setup Haskell Stack
@@ -87,7 +70,7 @@ jobs:
       run: |
         stack install
         mkdir -p ${{ github.workspace }}/artifact
-        cp $(stack path --local-bin)/openapi-generator ${{ env.binaryPath }}
+        cp $(stack path --local-bin)/openapi-generator${{ env.extension }} ${{ env.binaryPath }}
 
     - name: Upload artifact
       uses: actions/upload-artifact@v2
