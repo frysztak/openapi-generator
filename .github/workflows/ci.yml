@@ -10,6 +10,9 @@ jobs:
   stack:
     name: stack / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
@@ -18,6 +21,23 @@ jobs:
     steps:
     - uses: actions/checkout@v2
       if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.ref == 'refs/heads/main'
+    
+    - name: Setup OS map
+      uses: kanga333/variable-mapper@master
+      with:
+        key: "${{matrix.os}}"
+        map: |
+          {
+            "ubuntu-latest": {
+              "filename": "openapi-generator-linux64"
+            },
+            "macOS-latest": {
+              "filename": "openapi-generator-macos-intel"
+            },
+            "windows-latest": {
+              "filename": "openapi-generator-win64.exe"
+            }
+          }
 
     - uses: actions/setup-haskell@v1.1.4
       name: Setup Haskell Stack
@@ -46,10 +66,10 @@ jobs:
       run: |
         stack install
         mkdir -p ${{ github.workspace }}/artifact
-        cp $(stack path --local-bin)/openapi-generator ${{ github.workspace }}/artifact/openapi-generator-${{ matrix.os }}
+        cp $(stack path --local-bin)/openapi-generator ${{ github.workspace }}/artifact/${{ env.filename }}
 
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: openapi-generator-${{ matrix.os }}
-        path: ${{ github.workspace }}/artifact/openapi-generator-${{ matrix.os }}
+        name: ${{ env.filename }}
+        path: ${{ github.workspace }}/artifact/${{ env.filename }}
