@@ -38,7 +38,7 @@ jobs:
             },
             "windows-latest": {
               "filename": "openapi-generator-win64.exe",
-              "binaryPath": "${{ github.workspace }}\artifact\openapi-generator-win64.exe"
+              "binaryPath": "${{ github.workspace }}\\artifact\\openapi-generator-win64.exe"
             }
           }
 
