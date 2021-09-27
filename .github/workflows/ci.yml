@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  stack:
+    name: stack / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        ghc: ["8.10.4"]
+        stack: ["2.7"]
+
+    steps:
+      - uses: actions/checkout@v2
+        if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.ref == 'refs/heads/main'
+
+      - name: Setup env variables (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          echo "filename=openapi-generator-linux-x64" >> $GITHUB_ENV
+          echo "binaryPath=${{ github.workspace }}/artifact/openapi-generator-linux-x64" >> $GITHUB_ENV
+
+      - name: Setup env variables (MacOS)
+        if: startsWith(matrix.os, 'mac')
+        run: |
+          echo "filename=openapi-generator-darwin-x64" >> $GITHUB_ENV
+          echo "binaryPath=${{ github.workspace }}/artifact/openapi-generator-darwin-x64" >> $GITHUB_ENV
+
+      - name: Setup env variables (Windows)
+        if: startsWith(matrix.os, 'windows')
+        run: |
+          echo "filename=openapi-generator-win32-x64.exe" >> $env:GITHUB_ENV
+          echo "binaryPath=${{ github.workspace }}\artifact\openapi-generator-win32-x64.exe" >> $env:GITHUB_ENV
+
+      - name: Setup Haskell Stack
+        uses: haskell/actions/setup@v1
+        with:
+          ghc-version: ${{ matrix.ghc }}
+          enable-stack: true
+          stack-version: ${{ matrix.stack }}
+
+      - name: Cache Stack (Unix)
+        uses: actions/cache@v2
+        if: startsWith(matrix.os, 'windows') != true
+        with:
+          path: ~/.stack
+          key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml.lock') }}-${{ hashFiles('openapi-generator.cabal') }}
+
+      - name: Cache Stack (Windows)
+        uses: actions/cache@v2
+        if: startsWith(matrix.os, 'windows')
+        with:
+          path: 'C:\sr'
+          key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml.lock') }}-${{ hashFiles('openapi-generator.cabal') }}
+
+      - name: Install dependencies
+        run: |
+          stack build --test --bench --no-run-tests --no-run-benchmarks --only-dependencies
+
+      - name: Build
+        run: |
+          stack build --test --bench --no-run-tests --no-run-benchmarks
+
+      - name: Test
+        run: |
+          stack test
+
+      - name: Copy binary (Unix)
+        if: startsWith(matrix.os, 'windows') != true
+        run: |
+          stack install
+          mkdir -p ${{ github.workspace }}/artifact
+          cp $(stack path --local-bin)/openapi-generator ${{ env.binaryPath }}
+
+      - name: Copy binary (Windows)
+        if: startsWith(matrix.os, 'windows')
+        run: |
+          stack install
+          mkdir -p ${{ github.workspace }}\artifact
+          cp "$(stack path --local-bin)\openapi-generator.exe" ${{ env.binaryPath }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.filename }}
+          path: ${{ env.binaryPath }}
+
+      - name: Get Changelog Entry
+        if: startsWith(github.ref, 'refs/tags/')
+        id: changelog_reader
+        uses: mindsers/changelog-reader-action@v2
+        with:
+          validation_depth: 10
+          version: ${{ steps.tag_name.outputs.current_version }}
+          path: ./ChangeLog.md
+
+      - name: Release
+        uses: ncipollo/release-action@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag: ${{ steps.changelog_reader.outputs.version }}
+          name: Release ${{ steps.changelog_reader.outputs.version }}
+          body: ${{ steps.changelog_reader.outputs.changes }}
+          prerelease: ${{ steps.changelog_reader.outputs.status == 'prereleased' }}
+          draft: ${{ steps.changelog_reader.outputs.status == 'unreleased' }}
+          allowUpdates: true
+          artifacts: "${{ github.workspace }}/artifact/*"
