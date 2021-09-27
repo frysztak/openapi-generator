@@ -10,3 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial release! Successfuly generates clients for the famous Petstore API as well as other non-public APIs.
+- Fetch, Interface and Enum generator
+- Path, query, headers parameters support
+- Bearer token auth support
