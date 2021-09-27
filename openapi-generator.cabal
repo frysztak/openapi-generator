@@ -3,12 +3,10 @@ cabal-version: 1.12
 -- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
---
--- hash: f3a04b0a553558e29e9b9309aa9ef30739d7a3d60d3d9a3bc50ec629a4b1aeea
 
 name:           openapi-generator
 version:        0.1.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/openapi-generator#readme>
+description:    OpenAPI client generator
 homepage:       https://github.com/frysztak/openapi-generator#readme
 bug-reports:    https://github.com/frysztak/openapi-generator/issues
 author:         Sebastian Frysztak
@@ -32,7 +30,6 @@ library
       Generator.Enum
       Generator.Fetch
       Generator.Interface
-      Generator.ReactQuery
       Language.TypeScript
       Language.TypeScript.Printer
       Language.TypeScript.Syntax
@@ -55,7 +52,6 @@ library
     , lens
     , mtl
     , optparse-applicative
-    , pretty-simple
     , raw-strings-qq
     , text
   default-language: Haskell2010
@@ -82,7 +78,6 @@ executable openapi-generator
     , mtl
     , openapi-generator
     , optparse-applicative
-    , pretty-simple
     , raw-strings-qq
     , text
   default-language: Haskell2010
@@ -112,7 +107,6 @@ test-suite spec
     , mtl
     , openapi-generator
     , optparse-applicative
-    , pretty-simple
     , raw-strings-qq
     , text
   default-language: Haskell2010

@@ -1,60 +1,52 @@
-name:                openapi-generator
-version:             0.1.0
-github:              "frysztak/openapi-generator"
-license:             BSD3
-author:              "Sebastian Frysztak"
-maintainer:          "sebastian@frysztak.dev"
-copyright:           "2021 Sebastian Frysztak"
+name: openapi-generator
+version: 0.1.0
+github: "frysztak/openapi-generator"
+license: BSD3
+author: "Sebastian Frysztak"
+maintainer: "sebastian@frysztak.dev"
+copyright: "2021 Sebastian Frysztak"
 
 extra-source-files:
-- README.md
-- ChangeLog.md
+  - README.md
+  - ChangeLog.md
 
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
-
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/openapi-generator#readme>
+description: OpenAPI client generator
 
 dependencies:
-- base >= 4.7 && < 5
-- text
-- bytestring
-- aeson
-- containers
-- pretty-simple
-- hspec
-- raw-strings-qq
-- lens
-- generic-lens
-- data-default
-- optparse-applicative
-- filepath
-- directory
-- mtl
-- githash
+  - base >= 4.7 && < 5
+  - text
+  - bytestring
+  - aeson
+  - containers
+  - hspec
+  - raw-strings-qq
+  - lens
+  - generic-lens
+  - data-default
+  - optparse-applicative
+  - filepath
+  - directory
+  - mtl
+  - githash
 
 library:
-  source-dirs: 
+  source-dirs:
     - src
 
 executables:
   openapi-generator:
-    main:                Main.hs
-    source-dirs:         app
+    main: Main.hs
+    source-dirs: app
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    - -Wall
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+      - -Wall
     dependencies:
-    - openapi-generator
+      - openapi-generator
 
 tests:
   spec:
     defaults: hspec/hspec@master
-    dependencies: 
-     - openapi-generator
+    dependencies:
+      - openapi-generator
