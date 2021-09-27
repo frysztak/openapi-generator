@@ -45,11 +45,19 @@ jobs:
       with:
         stack-version: ${{ matrix.stack }}
 
-    - uses: actions/cache@v2.1.3
-      name: Cache ~/.stack
+    - name: Cache Stack (Unix)
+      uses: actions/cache@v2.1.3
+      if: startsWith(matrix.os, 'windows') != true
       with:
         path: ~/.stack
-        key: ${{ runner.os }}-stack
+        key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml.lock') }}-${{ hashFiles('openapi-generator.cabal') }}
+
+    - name: Cache Stack (Windows)
+      uses: actions/cache@v2.1.3
+      if: startsWith(matrix.os, 'windows')
+      with:
+        path: 'C:\Users\runneradmin\AppData\Roaming\stack'
+        key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml.lock') }}-${{ hashFiles('openapi-generator.cabal') }}
 
     - name: Install dependencies
       run: |
@@ -63,8 +71,8 @@ jobs:
       run: |
         stack test
 
-    - name: Copy binary
-      if: startsWith(matrix.os, 'ubuntu') || startsWith(matrix.os, 'mac')
+    - name: Copy binary (Unix)
+      if: startsWith(matrix.os, 'windows') != true
       run: |
         stack install
         mkdir -p ${{ github.workspace }}/artifact
