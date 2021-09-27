@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
-        ghc: ["8.10"]
+        ghc: ["8.10.4"]
         stack: ["2.7"]
 
     steps:
@@ -56,9 +56,7 @@ jobs:
         uses: actions/cache@v2
         if: startsWith(matrix.os, 'windows')
         with:
-          path: |
-            'C:\Users\runneradmin\AppData\Roaming\stack'
-            'C:\Users\runneradmin\AppData\Local\Programs\stack'
+          path: 'C:\sr'
           key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml.lock') }}-${{ hashFiles('openapi-generator.cabal') }}
 
       - name: Install dependencies
