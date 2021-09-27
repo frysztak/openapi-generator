@@ -22,20 +22,20 @@ jobs:
       - name: Setup env variables (Linux)
         if: startsWith(matrix.os, 'ubuntu')
         run: |
-          echo "filename=openapi-generator-linux-amd64" >> $GITHUB_ENV
-          echo "binaryPath=${{ github.workspace }}/artifact/openapi-generator-linux-amd64" >> $GITHUB_ENV
+          echo "filename=openapi-generator-linux-x64" >> $GITHUB_ENV
+          echo "binaryPath=${{ github.workspace }}/artifact/openapi-generator-linux-x64" >> $GITHUB_ENV
 
       - name: Setup env variables (MacOS)
         if: startsWith(matrix.os, 'mac')
         run: |
-          echo "filename=openapi-generator-macos-amd64" >> $GITHUB_ENV
-          echo "binaryPath=${{ github.workspace }}/artifact/openapi-generator-macos-amd64" >> $GITHUB_ENV
+          echo "filename=openapi-generator-darwin-x64" >> $GITHUB_ENV
+          echo "binaryPath=${{ github.workspace }}/artifact/openapi-generator-darwin-x64" >> $GITHUB_ENV
 
       - name: Setup env variables (Windows)
         if: startsWith(matrix.os, 'windows')
         run: |
-          echo "filename=openapi-generator-win64.exe" >> $GITHUB_ENV
-          echo "binaryPath=${{ github.workspace }}\artifact\openapi-generator-win64.exe" >> $GITHUB_ENV
+          echo "filename=openapi-generator-win32-x64.exe" >> $GITHUB_ENV
+          echo "binaryPath=${{ github.workspace }}\artifact\openapi-generator-win32-x64.exe" >> $GITHUB_ENV
 
       - uses: actions/setup-haskell@v1.1.4
         name: Setup Haskell Stack
@@ -82,16 +82,16 @@ jobs:
           mkdir -p ${{ github.workspace }}\artifact
           cp "$(stack path --local-bin)\openapi-generator.exe" ${{ env.binaryPath }}
 
-    # - name: Upload artifact
-    #   uses: actions/upload-artifact@v2
-    #   with:
-    #     name: ${{ env.filename }}
-    #     path: ${{ env.binaryPath }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.filename }}
+          path: ${{ env.binaryPath }}
 
-    #- name: Release
-    #  uses: softprops/action-gh-release@v1
-    #  #if: startsWith(github.ref, 'refs/tags/')
-    #  with:
-    #    draft: True
-    #    body_path: ${{ github.workspace }}/ChangeLog.md
-    #    files: ${{ github.workspace }}/artifact/*
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        #if: startsWith(github.ref, 'refs/tags/')
+        with:
+          draft: True
+          body_path: ${{ github.workspace }}/ChangeLog.md
+          files: ${{ github.workspace }}/artifact/*
