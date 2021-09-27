@@ -35,8 +35,8 @@ jobs:
       - name: Setup env variables (Windows)
         if: startsWith(matrix.os, 'windows')
         run: |
-          echo "filename=openapi-generator-win32-x64.exe" >> $GITHUB_ENV
-          echo "binaryPath=${{ github.workspace }}\artifact\openapi-generator-win32-x64.exe" >> $GITHUB_ENV
+          echo "filename=openapi-generator-win32-x64.exe" >> $env:GITHUB_ENV
+          echo "binaryPath=${{ github.workspace }}\artifact\openapi-generator-win32-x64.exe" >> $env:GITHUB_ENV
 
       - name: Setup Haskell Stack
         uses: haskell/actions/setup@v1
