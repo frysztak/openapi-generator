@@ -10,9 +10,6 @@ jobs:
   stack:
     name: stack / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash
     strategy:
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
@@ -83,7 +80,7 @@ jobs:
       run: |
         stack install
         mkdir -p ${{ github.workspace }}\artifact
-        cp $(stack path --local-bin)\openapi-generator.exe ${{ env.binaryPath }}
+        cp "$(stack path --local-bin)\openapi-generator.exe" ${{ env.binaryPath }}
 
 
     - name: Upload artifact
@@ -98,4 +95,4 @@ jobs:
       with:
         draft: True
         body_path: ${{ github.workspace }}/ChangeLog.md
-        files: ${{ env.binaryPath }}
+        files: ${{ github.workspace }}/artifact
