@@ -91,10 +91,23 @@ jobs:
           name: ${{ env.filename }}
           path: ${{ env.binaryPath }}
 
+      - name: Get Changelog Entry
+        #if: startsWith(github.ref, 'refs/tags/')
+        id: changelog_reader
+        uses: mindsers/changelog-reader-action@v2
+        with:
+          validation_depth: 10
+          version: ${{ steps.tag_name.outputs.current_version }}
+          path: ./ChangeLog.md
+
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: ncipollo/release-action@v1
         #if: startsWith(github.ref, 'refs/tags/')
         with:
-          draft: True
-          body_path: ${{ github.workspace }}/ChangeLog.md
-          files: ${{ github.workspace }}/artifact/*
+          tag: ${{ steps.changelog_reader.outputs.version }}
+          name: Release ${{ steps.changelog_reader.outputs.version }}
+          body: ${{ steps.changelog_reader.outputs.changes }}
+          prerelease: ${{ steps.changelog_reader.outputs.status == 'prereleased' }}
+          draft: ${{ steps.changelog_reader.outputs.status == 'unreleased' }}
+          allowUpdates: true
+          artifacts: "${{ github.workspace }}/artifact/*"
