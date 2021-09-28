@@ -14,6 +14,7 @@ on:
 
 jobs:
   stack:
+    if: "!endsWith(github.ref, '-nodejs')"
     name: stack / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
