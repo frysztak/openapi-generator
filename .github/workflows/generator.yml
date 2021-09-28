@@ -3,7 +3,11 @@ name: Generator CI
 on:
   workflow_dispatch:
   pull_request:
+    paths-ignore:
+      - "node/**"
   push:
+    paths-ignore:
+      - "node/**"
     branches: [main]
     tags:
       - "v*"
