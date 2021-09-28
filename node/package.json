@@ -12,13 +12,14 @@
     }
   },
   "bin": {
-    "run-openapi-generator": "./build/index.js"
+    "run-openapi-generator": "./src/run-openapi-generator"
   },
   "scripts": {
     "build": "tsc"
   },
   "files": [
-    "build"
+    "build",
+    "src/run-openapi-generator"
   ],
   "dependencies": {
     "@octokit/request": "^5.6.1",
