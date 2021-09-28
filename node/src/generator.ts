@@ -29,7 +29,7 @@ function getExePath(version: string): string {
 function isVersionInBinDir(version: string): TE.TaskEither<Error, void> {
   const exePath = getExePath(version);
 
-  return pipe(TE.tryCatch(() => fs.access(exePath), E.toError));
+  return TE.tryCatch(() => fs.access(exePath), E.toError);
 }
 
 function getArchSuffix(): string {
@@ -61,7 +61,11 @@ function downloadGenerator(version: string): TE.TaskEither<Error, void> {
             )
           );
     }),
-    TE.chainFirstIOK(() => C.log('Downloading generator...')),
+    TE.chainFirstIOK(() =>
+      C.log(
+        `Downloading generator, version ${version}, arch ${getArchSuffix()}...`
+      )
+    ),
     TE.chain((asset) => {
       return TE.tryCatch(
         () =>
@@ -80,9 +84,16 @@ function downloadGenerator(version: string): TE.TaskEither<Error, void> {
     TE.chain((assetStream) => {
       const arrayBuffer = assetStream.data as unknown as ArrayBuffer;
       const exePath = getExePath(version);
-      return TE.tryCatch(
-        () => fs.writeFile(exePath, Buffer.from(arrayBuffer)),
-        E.toError
+      const binDir = getBinDir();
+
+      return pipe(
+        TE.tryCatch(() => fs.mkdir(binDir), E.toError),
+        TE.chain(() =>
+          TE.tryCatch(
+            () => fs.writeFile(exePath, Buffer.from(arrayBuffer)),
+            E.toError
+          )
+        )
       );
     }),
     TE.chain(() =>
