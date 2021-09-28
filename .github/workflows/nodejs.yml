@@ -1,0 +1,53 @@
+name: Node.js CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "node/**"
+  push:
+    branches: [main]
+    tags:
+      - "v*"
+    paths:
+      - "node/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./node
+    steps:
+      - uses: actions/checkout@v2
+      # Setup .npmrc file to publish to npm
+      - uses: actions/setup-node@v2
+        with:
+          node-version: "14.x"
+          registry-url: "https://registry.npmjs.org"
+      - run: yarn install --frozen-lockfile
+      - run: yarn build
+      - run: yarn publish
+        if: startsWith(github.ref, 'refs/tags/') && endsWith(github.ref, '-nodejs')
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Get Changelog Entry
+        if: startsWith(github.ref, 'refs/tags/') && endsWith(github.ref, '-nodejs')
+        id: changelog_reader
+        uses: mindsers/changelog-reader-action@v2
+        with:
+          validation_depth: 10
+          version: ${{ steps.tag_name.outputs.current_version }}
+          path: ./CHANGELOG.md
+
+      - name: Release
+        uses: ncipollo/release-action@v1
+        if: startsWith(github.ref, 'refs/tags/') && endsWith(github.ref, '-nodejs')
+        with:
+          tag: "v${{ steps.changelog_reader.outputs.version }}-nodejs"
+          name: Node.js release ${{ steps.changelog_reader.outputs.version }}
+          body: ${{ steps.changelog_reader.outputs.changes }}
+          prerelease: ${{ steps.changelog_reader.outputs.status == 'prereleased' }}
+          draft: ${{ steps.changelog_reader.outputs.status == 'unreleased' }}
+          allowUpdates: true
