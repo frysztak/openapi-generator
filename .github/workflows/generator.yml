@@ -5,9 +5,11 @@ on:
   pull_request:
     paths-ignore:
       - "node/**"
+      - ".github/workflows/nodejs.yml"
   push:
     paths-ignore:
       - "node/**"
+      - ".github/workflows/nodejs.yml"
     branches: [main]
     tags:
       - "v*"
