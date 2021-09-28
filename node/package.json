@@ -1,6 +1,6 @@
 {
   "name": "@frysztak/openapi-generator",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Node.js wrapper for OpenAPI generator written in Haskell",
   "main": "src/index.ts",
   "author": "Sebastian Frysztak",
