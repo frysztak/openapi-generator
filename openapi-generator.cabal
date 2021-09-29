@@ -88,6 +88,7 @@ test-suite spec
   other-modules:
       Generator.CommonSpec
       Generator.FetchSpec
+      Generator.InterfaceSpec
       OpenAPISpec
       Paths_openapi_generator
   hs-source-dirs:
