@@ -16,8 +16,11 @@ import OpenAPI
 import Test.Hspec
 import Text.RawString.QQ (r)
 
-genGlobals :: Schemas -> [Global]
-genGlobals = genAST
+genSchemas :: Schemas -> [Global]
+genSchemas = genAST
+
+genParameters :: Parameters -> [Global]
+genParameters = genAST
 
 makeInterface :: Text -> Object -> Global
 makeInterface name props =
@@ -33,7 +36,7 @@ makeInterface name props =
 
 spec :: Spec
 spec = do
-  describe "Models generator" $ do
+  describe "Schemas generator" $ do
     let decodeSchemas = decode :: BS.ByteString -> Maybe Schemas
 
     it "can process type string/number/boolean" $ do
@@ -62,7 +65,7 @@ spec = do
 }
 |]
       schemas `shouldNotBe` Nothing
-      let globals = maybe [] genGlobals schemas
+      let globals = maybe [] genSchemas schemas
 
       globals
         `shouldBe` [ makeInterface
@@ -93,7 +96,7 @@ spec = do
 }
 |]
       schemas `shouldNotBe` Nothing
-      let globals = maybe [] genGlobals schemas
+      let globals = maybe [] genSchemas schemas
 
       globals
         `shouldBe` [ Export
@@ -150,7 +153,7 @@ spec = do
 }
 |]
       schemas `shouldNotBe` Nothing
-      let globals = maybe [] genGlobals schemas
+      let globals = maybe [] genSchemas schemas
 
       globals
         `shouldBe` [ makeInterface
@@ -185,7 +188,7 @@ spec = do
 }
 |]
       schemas `shouldNotBe` Nothing
-      let globals = maybe [] genGlobals schemas
+      let globals = maybe [] genSchemas schemas
 
       globals
         `shouldBe` [ makeInterface
@@ -216,13 +219,126 @@ spec = do
 }
 |]
       schemas `shouldNotBe` Nothing
-      let globals = maybe [] genGlobals schemas
+      let globals = maybe [] genSchemas schemas
 
       globals
         `shouldBe` [ makeInterface
                        "Pet"
                        ( M.fromList
                            [ (StringKey "tags", List $ TypeRef "Tag")
+                           ]
+                       )
+                   ]
+
+  describe "Parameters generator" $ do
+    let decodeParameters = decode :: BS.ByteString -> Maybe Parameters
+
+    it "can process type string/number/boolean/array" $ do
+      let parameters =
+            decodeParameters
+              [r|
+{
+  "PetParam": {
+    "in": "query",
+    "name": "pet",
+    "schema": {
+      "type": "object",
+      "required": ["name", "id", "isFluffy", "tags"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "doggie"
+        },
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "example": 10
+        },
+        "isFluffy": {
+          "type": "boolean"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Tag"
+          }
+        }
+      }
+    }
+  }
+}
+|]
+      parameters `shouldNotBe` Nothing
+
+      let globals = maybe [] genParameters parameters
+
+      globals
+        `shouldBe` [ makeInterface
+                       "PetParam"
+                       ( M.fromList
+                           [ (StringKey "name", String),
+                             (StringKey "id", Number),
+                             (StringKey "isFluffy", Boolean),
+                             (StringKey "tags", List $ TypeRef "Tag")
+                           ]
+                       )
+                   ]
+
+    it "can process inline object inside array" $ do
+      let parameters =
+            decodeParameters
+              [r|
+{
+  "PetParam": {
+    "in": "query",
+    "name": "pet",
+    "schema": {
+      "type": "object",
+      "required": ["name", "toys"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "doggie"
+        },
+        "toys": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64",
+                "example": 10
+              },
+              "name": {
+                "type": "string",
+                "example": "ball"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+|]
+      parameters `shouldNotBe` Nothing
+
+      let globals = maybe [] genParameters parameters
+
+      globals
+        `shouldBe` [ makeInterface
+                       "PetParamToysListItem"
+                       ( M.fromList
+                           [ (Optional (StringKey "id"), Number),
+                             (Optional (StringKey "name"), String)
+                           ]
+                       ),
+                     makeInterface
+                       "PetParam"
+                       ( M.fromList
+                           [ (StringKey "name", String),
+                             (StringKey "toys", List (TypeRef "PetParamToysListItem"))
                            ]
                        )
                    ]

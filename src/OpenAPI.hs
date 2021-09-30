@@ -214,10 +214,12 @@ data MediaType = MediaType
 
 type Schemas = M.Map Text SchemaOrReference
 
+type Parameters = M.Map Text ParameterOrReference
+
 data Components = Components
   { schemas :: Maybe Schemas,
     responses :: Maybe (M.Map Text ResponseOrReference),
-    parameters :: Maybe (M.Map Text ParameterOrReference),
+    parameters :: Maybe Parameters,
     -- examples
     requestBodies :: Maybe (M.Map Text RequestBodyOrReference),
     -- headers

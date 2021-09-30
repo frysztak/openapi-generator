@@ -34,14 +34,21 @@ instance GenerateAST Components [Global] where
   genAST components = schemas'
     where
       schemas' = mapMaybeArray (genAST <$> components ^. #schemas)
+      parameters' = mapMaybeArray (genAST <$> components ^. #parameters) :: [Global]
 
 instance GenerateAST Schemas [Global] where
   genAST schemas =
-    (flatten . M.elems) $ M.mapWithKey mapper schemas
+    (flatten . M.elems . mapValues' . mapKeys') schemas
     where
-      mapper :: Text -> SchemaOrReference -> [Global]
-      mapper name (SchemaData s) = schemaToGlobal (fixSchemaName name) s
-      mapper _ _ = []
+      mapKeys' = M.mapKeys fixSchemaName
+      mapValues' = M.mapWithKey schemaOrRefToGlobal
+
+instance GenerateAST Parameters [Global] where
+  genAST parameters =
+    (flatten . M.elems . mapValues' . mapKeys') parameters
+    where
+      mapKeys' = M.mapKeys fixSchemaName
+      mapValues' = M.mapWithKey parameterOrRefToGlobal
 
 schemaToGlobal :: Text -> Schema -> [Global]
 schemaToGlobal parentName schema = case schema ^. #itemType of
@@ -88,17 +95,22 @@ schemaToGlobal parentName schema = case schema ^. #itemType of
 
       nestedGlobals =
         (flatten . M.elems . mapMaybeMap) $
-          M.mapWithKey
-            ( \k v -> case v of
-                SchemaData s -> schemaToGlobal (parentName <> capitalize k) s
-                _ -> []
-            )
+          M.mapWithKey (\k v -> schemaOrRefToGlobal (parentName <> capitalize k) v)
             <$> properties
   "array" -> case schema ^. #items of
-    Just (SchemaData schema) -> schemaToGlobal (parentName <> "ListItem") schema
-    Just _ -> []
+    Just s -> schemaOrRefToGlobal (parentName <> "ListItem") s
     Nothing -> error "ItemType 'array' without 'items'"
   _ -> []
+
+schemaOrRefToGlobal :: Text -> SchemaOrReference -> [Global]
+schemaOrRefToGlobal name (SchemaData s) = schemaToGlobal name s
+schemaOrRefToGlobal _ _ = []
+
+parameterOrRefToGlobal :: Text -> ParameterOrReference -> [Global]
+parameterOrRefToGlobal name (ParameterData p) = case p ^. #schema of
+  Just s -> schemaOrRefToGlobal name s
+  _ -> []
+parameterOrRefToGlobal _ _ = []
 
 flatten :: [[a]] -> [a]
 flatten arr = [y | x <- arr, y <- x]
