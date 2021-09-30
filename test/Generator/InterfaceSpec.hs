@@ -22,6 +22,9 @@ genSchemas = genAST
 genParameters :: Parameters -> [Global]
 genParameters = genAST
 
+genPaths :: Paths -> [Global]
+genPaths = genAST
+
 makeInterface :: Text -> Object -> Global
 makeInterface name props =
   Export
@@ -342,3 +345,130 @@ spec = do
                            ]
                        )
                    ]
+
+  describe "Paths generator" $ do
+    describe "Parameters inside Operation" $ do
+      let decodePaths = decode :: BS.ByteString -> Maybe Paths
+
+      it "generates nothing for string/number/boolean/array ref" $ do
+        let paths =
+              decodePaths
+                [r|
+{
+  "/pet/{petId}": {
+    "get": {
+      "operationId": "getPetById",
+      "parameters": [
+        {
+          "name": "petId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "petAge",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "number"
+          }
+        },
+        {
+          "name": "petFluffy",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "name": "petTags",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tag"
+            }
+          }
+        }
+      ],
+      "responses": {}
+    }
+  }
+}
+|]
+        paths `shouldNotBe` Nothing
+
+        let globals = maybe [] genPaths paths
+        globals `shouldBe` []
+
+      it "can process inline object inside array" $ do
+        let paths =
+              decodePaths
+                [r|
+{
+  "/pet/{petId}": {
+    "get": {
+      "operationId": "getPetById",
+      "parameters": [
+        {
+          "name": "petId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["name", "toys"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "example": "doggie"
+              },
+              "toys": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "format": "int64",
+                      "example": 10
+                    },
+                    "name": {
+                      "type": "string",
+                      "example": "ball"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "responses": {}
+    }
+  }
+}
+|]
+        paths `shouldNotBe` Nothing
+
+        let globals = maybe [] genPaths paths
+
+        globals
+          `shouldBe` [ makeInterface
+                         "GetPetByIdPetIdParamToysListItem"
+                         ( M.fromList
+                             [ (Optional (StringKey "id"), Number),
+                               (Optional (StringKey "name"), String)
+                             ]
+                         ),
+                       makeInterface
+                         "GetPetByIdPetIdParam"
+                         ( M.fromList
+                             [ (StringKey "name", String),
+                               (StringKey "toys", List (TypeRef "GetPetByIdPetIdParamToysListItem"))
+                             ]
+                         )
+                     ]

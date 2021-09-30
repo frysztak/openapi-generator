@@ -23,12 +23,13 @@ instance GenerateAST OpenAPI [Module] where
   genAST openApi =
     [ Module
         { fileName = "models.ts",
-          body = components'
+          body = components' ++ paths'
         },
       makeIndexModule "./models"
     ]
     where
       components' = mapMaybeArray (genAST <$> openApi ^. #components)
+      paths' = genAST (openApi ^. #paths)
 
 instance GenerateAST Components [Global] where
   genAST components = schemas'
@@ -49,6 +50,34 @@ instance GenerateAST Parameters [Global] where
     where
       mapKeys' = M.mapKeys fixSchemaName
       mapValues' = M.mapWithKey parameterOrRefToGlobal
+
+instance GenerateAST Paths [Global] where
+  genAST paths =
+    (flatten . M.elems) $ M.mapWithKey (curry genAST) paths
+
+instance GenerateAST (Text, PathItem) [Global] where
+  genAST (endpoint, item) = flatten $ catMaybes [get', post', put', delete']
+    where
+      gen :: Text -> Text -> Operation -> [Global]
+      gen endpoint verb op = genAST (endpoint, verb, op)
+
+      get' = gen endpoint "get" <$> item ^. #get
+      post' = gen endpoint "post" <$> item ^. #post
+      put' = gen endpoint "put" <$> item ^. #put
+      delete' = gen endpoint "delete" <$> item ^. #delete
+
+instance GenerateAST (Text, Text, Operation) [Global] where
+  genAST (endpoint, verb, op) = maybe [] (flatten . map mapParameter) parameters
+    where
+      opName = capitalize $ getOperationName endpoint verb op
+      parameters = op ^. #parameters
+
+      getParamName :: ParameterOrReference -> Text
+      getParamName (ParameterData p) = capitalize (p ^. #name) <> "Param"
+      getParamName _ = ""
+
+      mapParameter :: ParameterOrReference -> [Global]
+      mapParameter p = parameterOrRefToGlobal (opName <> getParamName p) p
 
 schemaToGlobal :: Text -> Schema -> [Global]
 schemaToGlobal parentName schema = case schema ^. #itemType of

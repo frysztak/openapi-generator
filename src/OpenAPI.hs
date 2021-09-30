@@ -42,7 +42,7 @@ data PathItem = PathItem
     post :: Maybe Operation,
     delete :: Maybe Operation
   }
-  deriving (Generic, FromJSON, Show)
+  deriving (Generic, FromJSON, Show, Eq)
 
 type Paths = M.Map Text PathItem
 
@@ -80,7 +80,7 @@ data Operation = Operation
     -- security
     -- servers
   }
-  deriving (Generic, FromJSON, Show)
+  deriving (Generic, FromJSON, Show, Eq)
 
 data RequestBody = RequestBody
   { description :: Maybe Text,
