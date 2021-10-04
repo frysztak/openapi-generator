@@ -32,10 +32,11 @@ instance GenerateAST OpenAPI [Module] where
       paths' = genAST (openApi ^. #paths)
 
 instance GenerateAST Components [Global] where
-  genAST components = schemas'
+  genAST components = schemas' ++ parameters' ++ responses'
     where
       schemas' = mapMaybeArray (genAST <$> components ^. #schemas)
-      parameters' = mapMaybeArray (genAST <$> components ^. #parameters) :: [Global]
+      parameters' = mapMaybeArray (genAST <$> components ^. #parameters)
+      responses' = mapMaybeArray (genAST <$> components ^. #responses)
 
 instance GenerateAST Schemas [Global] where
   genAST schemas =
@@ -67,10 +68,11 @@ instance GenerateAST (Text, PathItem) [Global] where
       delete' = gen endpoint "delete" <$> item ^. #delete
 
 instance GenerateAST (Text, Text, Operation) [Global] where
-  genAST (endpoint, verb, op) = maybe [] (flatten . map mapParameter) parameters
+  genAST (endpoint, verb, op) = parameters' ++ responses'
     where
       opName = capitalize $ getOperationName endpoint verb op
       parameters = op ^. #parameters
+      parameters' = maybe [] (flatten . map mapParameter) parameters
 
       getParamName :: ParameterOrReference -> Text
       getParamName (ParameterData p) = capitalize (p ^. #name) <> "Param"
@@ -78,6 +80,12 @@ instance GenerateAST (Text, Text, Operation) [Global] where
 
       mapParameter :: ParameterOrReference -> [Global]
       mapParameter p = parameterOrRefToGlobal (opName <> getParamName p) p
+
+      responses = op ^. #responses
+      responses' = genAST $ M.mapKeys (\k -> opName <> getResponseName k) responses
+
+instance GenerateAST Responses [Global] where
+  genAST responses = (flatten . M.elems . M.mapWithKey responseOrRefToGlobal) responses
 
 schemaToGlobal :: Text -> Schema -> [Global]
 schemaToGlobal parentName schema = case schema ^. #itemType of
@@ -131,6 +139,25 @@ schemaToGlobal parentName schema = case schema ^. #itemType of
     Nothing -> error "ItemType 'array' without 'items'"
   _ -> []
 
+mediaTypesToGlobal :: Text -> MediaTypes -> [Global]
+mediaTypesToGlobal parentName mediaTypes =
+  (flatten . M.elems . M.mapWithKey mapper) mediaTypes
+  where
+    mapper :: Text -> MediaType -> [Global]
+    mapper name mediaType =
+      schemaOrRefToGlobal
+        (parentName <> getMediaTypeName name)
+        (mediaType ^. #schema)
+
+getMediaTypeName :: Text -> Text
+getMediaTypeName "application/json" = ""
+getMediaTypeName "application/octet-stream" = "OctetStream"
+getMediaTypeName x = x
+
+getResponseName :: Text -> Text
+getResponseName "200" = "Success"
+getResponseName x = x
+
 schemaOrRefToGlobal :: Text -> SchemaOrReference -> [Global]
 schemaOrRefToGlobal name (SchemaData s) = schemaToGlobal name s
 schemaOrRefToGlobal _ _ = []
@@ -140,6 +167,12 @@ parameterOrRefToGlobal name (ParameterData p) = case p ^. #schema of
   Just s -> schemaOrRefToGlobal name s
   _ -> []
 parameterOrRefToGlobal _ _ = []
+
+responseOrRefToGlobal :: Text -> ResponseOrReference -> [Global]
+responseOrRefToGlobal name (ResponseData p) = case p ^. #content of
+  Just mediaTypes -> mediaTypesToGlobal (name <> "Response") mediaTypes
+  _ -> []
+responseOrRefToGlobal _ _ = []
 
 flatten :: [[a]] -> [a]
 flatten arr = [y | x <- arr, y <- x]

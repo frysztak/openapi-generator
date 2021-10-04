@@ -49,15 +49,15 @@ type Paths = M.Map Text PathItem
 data Response = Response
   { description :: Text,
     -- headers
-    content :: Maybe (M.Map Text MediaType)
+    content :: Maybe MediaTypes
     -- links
   }
   deriving (Generic, FromJSON, Show, Eq)
 
-type Responses = M.Map Text Response
+type Responses = M.Map Text ResponseOrReference
 
 data ResponseOrReference = ResponseReference Reference | ResponseData Response
-  deriving (Generic, Show)
+  deriving (Generic, Show, Eq)
 
 instance FromJSON ResponseOrReference where
   parseJSON =
@@ -85,7 +85,7 @@ data Operation = Operation
 data RequestBody = RequestBody
   { description :: Maybe Text,
     required :: Maybe Bool,
-    content :: M.Map Text MediaType
+    content :: MediaTypes
   }
   deriving (Generic, FromJSON, Show, Eq)
 
@@ -212,16 +212,20 @@ data MediaType = MediaType
   }
   deriving (Generic, FromJSON, Show, Eq)
 
+type MediaTypes = M.Map Text MediaType
+
 type Schemas = M.Map Text SchemaOrReference
 
 type Parameters = M.Map Text ParameterOrReference
 
+type RequestBodies = M.Map Text RequestBodyOrReference
+
 data Components = Components
   { schemas :: Maybe Schemas,
-    responses :: Maybe (M.Map Text ResponseOrReference),
+    responses :: Maybe Responses,
     parameters :: Maybe Parameters,
     -- examples
-    requestBodies :: Maybe (M.Map Text RequestBodyOrReference),
+    requestBodies :: Maybe RequestBodies,
     -- headers
     securitySchemes :: Maybe (M.Map Text SecuritySchemeOrReference)
     -- links

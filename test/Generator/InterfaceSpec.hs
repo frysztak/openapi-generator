@@ -25,6 +25,9 @@ genParameters = genAST
 genPaths :: Paths -> [Global]
 genPaths = genAST
 
+genResponses :: Responses -> [Global]
+genResponses = genAST
+
 makeInterface :: Text -> Object -> Global
 makeInterface name props =
   Export
@@ -469,6 +472,344 @@ spec = do
                          ( M.fromList
                              [ (StringKey "name", String),
                                (StringKey "toys", List (TypeRef "GetPetByIdPetIdParamToysListItem"))
+                             ]
+                         )
+                     ]
+
+  describe "Responses generator" $ do
+    describe "Global Responses" $ do
+      let decodeResponses = decode :: BS.ByteString -> Maybe Responses
+
+      it "generates nothing for refs" $ do
+        let responses =
+              decodeResponses
+                [r|
+{
+  "Pet": {
+    "description": "a pet to be returned",
+    "content": {
+      "application/json": {
+        "schema": {
+          "$ref": "#/components/schemas/Pet"
+        }
+      }
+    }
+  }
+}
+|]
+        responses `shouldNotBe` Nothing
+
+        let globals = maybe [] genResponses responses
+        globals `shouldBe` []
+
+      it "can process embedded object" $ do
+        let responses =
+              decodeResponses
+                [r|
+{
+  "Pet": {
+    "description": "a pet to be returned",
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "required": ["name", "id", "isFluffy", "tags"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "example": "doggie"
+            },
+            "id": {
+              "type": "integer",
+              "format": "int64",
+              "example": 10
+            },
+            "isFluffy": {
+              "type": "boolean"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Tag"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+|]
+        responses `shouldNotBe` Nothing
+
+        let globals = maybe [] genResponses responses
+        globals
+          `shouldBe` [ makeInterface
+                         "PetResponse"
+                         ( M.fromList
+                             [ (StringKey "name", String),
+                               (StringKey "id", Number),
+                               (StringKey "isFluffy", Boolean),
+                               (StringKey "tags", List (TypeRef "Tag"))
+                             ]
+                         )
+                     ]
+
+      it "can process inline object inside array" $ do
+        let responses =
+              decodeResponses
+                [r|
+{
+  "Pet": {
+    "description": "a pet to be returned",
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "required": ["name", "id", "isFluffy", "tags", "toys"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "example": "doggie"
+            },
+            "id": {
+              "type": "integer",
+              "format": "int64",
+              "example": 10
+            },
+            "isFluffy": {
+              "type": "boolean"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Tag"
+              }
+            },
+            "toys": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 10
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "ball"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+|]
+        responses `shouldNotBe` Nothing
+
+        let globals = maybe [] genResponses responses
+        globals
+          `shouldBe` [ makeInterface
+                         "PetResponseToysListItem"
+                         ( M.fromList
+                             [ (Optional (StringKey "id"), Number),
+                               (Optional (StringKey "name"), String)
+                             ]
+                         ),
+                       makeInterface
+                         "PetResponse"
+                         ( M.fromList
+                             [ (StringKey "name", String),
+                               (StringKey "id", Number),
+                               (StringKey "isFluffy", Boolean),
+                               (StringKey "tags", List (TypeRef "Tag")),
+                               (StringKey "toys", List (TypeRef "PetResponseToysListItem"))
+                             ]
+                         )
+                     ]
+
+    describe "Responses inside Operation" $ do
+      let decodePaths = decode :: BS.ByteString -> Maybe Paths
+      let decodeResponses = decodePaths
+
+      it "generates nothing for refs" $ do
+        let paths =
+              decodePaths
+                [r|
+{
+  "/pet/{petId}": {
+    "get": {
+      "operationId": "getPetById",
+      "parameters": [],
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Pet"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+|]
+        paths `shouldNotBe` Nothing
+
+        let globals = maybe [] genPaths paths
+        globals `shouldBe` []
+
+      it "can process embedded object" $ do
+        let paths =
+              decodePaths
+                [r|
+{
+  "/pet/{petId}": {
+    "get": {
+      "operationId": "getPetById",
+      "parameters": [],
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "id", "isFluffy", "tags"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "doggie"
+                  },
+                  "id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 10
+                  },
+                  "isFluffy": {
+                    "type": "boolean"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Tag"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+|]
+        paths `shouldNotBe` Nothing
+
+        let globals = maybe [] genPaths paths
+        globals
+          `shouldBe` [ makeInterface
+                         "GetPetByIdSuccessResponse"
+                         ( M.fromList
+                             [ (StringKey "name", String),
+                               (StringKey "id", Number),
+                               (StringKey "isFluffy", Boolean),
+                               (StringKey "tags", List (TypeRef "Tag"))
+                             ]
+                         )
+                     ]
+
+      it "can process inline object inside array" $ do
+        let paths =
+              decodePaths
+                [r|
+{
+  "/pet/{petId}": {
+    "get": {
+      "operationId": "getPetById",
+      "parameters": [],
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "id", "isFluffy", "tags", "toys"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "doggie"
+                  },
+                  "id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 10
+                  },
+                  "isFluffy": {
+                    "type": "boolean"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Tag"
+                    }
+                  },
+                  "toys": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "format": "int64",
+                          "example": 10
+                        },
+                        "name": {
+                          "type": "string",
+                          "example": "ball"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+|]
+        paths `shouldNotBe` Nothing
+
+        let globals = maybe [] genPaths paths
+        globals
+          `shouldBe` [ makeInterface
+                         "GetPetByIdSuccessResponseToysListItem"
+                         ( M.fromList
+                             [ (Optional (StringKey "id"), Number),
+                               (Optional (StringKey "name"), String)
+                             ]
+                         ),
+                       makeInterface
+                         "GetPetByIdSuccessResponse"
+                         ( M.fromList
+                             [ (StringKey "name", String),
+                               (StringKey "id", Number),
+                               (StringKey "isFluffy", Boolean),
+                               (StringKey "tags", List (TypeRef "Tag")),
+                               (StringKey "toys", List (TypeRef "GetPetByIdSuccessResponseToysListItem"))
                              ]
                          )
                      ]
