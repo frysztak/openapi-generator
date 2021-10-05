@@ -194,18 +194,22 @@ spec = do
       schema `shouldNotBe` Nothing
 
       let type' = schemaToTypeRef "Pet" =<< schema
+      type' `shouldBe` Just (TypeRef "Pet")
+
+    it "works for empty object" $ do
+      let schema =
+            decodeSchemaOrRef
+              [r|
+{
+  "type": "object",
+  "additionalProperties": {
+    "type": "integer",
+    "format": "int32"
+    }
+}
+|]
+      schema `shouldNotBe` Nothing
+
+      let type' = schemaToTypeRef "PetToys" =<< schema
       type' `shouldNotBe` Nothing
-      type'
-        `shouldBe` Just
-          ( Object
-              ( M.fromList
-                  [ (Optional (StringKey "id"), Number),
-                    (StringKey "name", String),
-                    (Optional (StringKey "isFluffy"), Boolean),
-                    (Optional (StringKey "category"), TypeRef "Category"),
-                    (StringKey "photoUrls", List String),
-                    (Optional (StringKey "tags"), List (TypeRef "Tag")),
-                    (Optional (StringKey "status"), TypeRef "PetStatusEnum")
-                  ]
-              )
-          )
+      type' `shouldBe` Just (TypeRef "PetToys")

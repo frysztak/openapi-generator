@@ -17,7 +17,7 @@ import qualified Data.Map.Strict as M
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Text (Text, toUpper)
 import Generator
-import Generator.Common (cleanRef, getOperationName, makeIndexModule, mapMaybeArray, schemaToType)
+import Generator.Common (capitalize, cleanRef, getMediaTypeName, getOperationName, getResponseName, makeIndexModule, mapMaybeArray, schemaToType, schemaToTypeRef)
 import Language.TypeScript
 import OpenAPI
 
@@ -94,7 +94,7 @@ instance GenerateAST' (Text, Text, Operation) VariableDeclaration where
                 returnType = Nothing
               }
 
-    let returnType' = getResponseType $ op ^. #responses
+    let returnType' = getResponseType endpoint verb op
     let returnType'' = fmap (\t -> Generic (TypeRef "Promise") [t]) returnType'
 
     let fetchLambda =
@@ -230,12 +230,21 @@ requestBodyToFuncArg (RequestBodyData p) = case (jsonArg, octetArg) of
         )
         octet
 
-getResponseType :: Responses -> Maybe Type
-getResponseType rs = do
+getResponseType :: Text -> Text -> Operation -> Maybe Type
+getResponseType endpoint verb op = do
+  let rs = op ^. #responses
   code200 <- rs M.!? "200"
-  content <- code200 ^. #content
-  json <- content M.!? "application/json"
-  type' <- schemaToType (json ^. #schema)
+  type' <- case code200 of
+    (ResponseReference (Reference ref)) -> Just $ TypeRef (cleanRef ref)
+    (ResponseData r) -> do
+      content <- r ^. #content
+      json <- content M.!? "application/json"
+      let name =
+            capitalize (getOperationName endpoint verb op)
+              <> getResponseName "200"
+              <> getMediaTypeName "application/json"
+              <> "Response"
+      schemaToTypeRef name (json ^. #schema)
 
   pure $ rewriteImportedTypes type'
   where

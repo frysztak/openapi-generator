@@ -149,15 +149,6 @@ mediaTypesToGlobal parentName mediaTypes =
         (parentName <> getMediaTypeName name)
         (mediaType ^. #schema)
 
-getMediaTypeName :: Text -> Text
-getMediaTypeName "application/json" = ""
-getMediaTypeName "application/octet-stream" = "OctetStream"
-getMediaTypeName x = x
-
-getResponseName :: Text -> Text
-getResponseName "200" = "Success"
-getResponseName x = x
-
 schemaOrRefToGlobal :: Text -> SchemaOrReference -> [Global]
 schemaOrRefToGlobal name (SchemaData s) = schemaToGlobal name s
 schemaOrRefToGlobal _ _ = []

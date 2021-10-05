@@ -75,17 +75,7 @@ schemaToTypeRef parentName (SchemaData schema) = fmap makeNullable' type'
       "string" -> case schema ^. #enum of
         Nothing -> Just String
         Just _ -> Just $ TypeRef (getEnumName parentName)
-      "object" ->
-        Just $ Object objProps
-        where
-          properties = schema ^. #properties
-          required = schema ^. #required
-          mapKeys' = mapKeys $ \k ->
-            if k `elem` required
-              then StringKey k
-              else Optional $ StringKey k
-          mapValues' = M.mapMaybeWithKey (\k v -> schemaToTypeRef (parentName <> capitalize k) v)
-          objProps = mapMaybeMap $ mapKeys' . mapValues' <$> properties
+      "object" -> Just $ TypeRef parentName
       "integer" -> Just Number
       "boolean" -> Just Boolean
       "null" -> Just Null
@@ -158,6 +148,15 @@ capitalize str = case null str of
 fixSchemaName :: Text -> Text
 fixSchemaName "Error" = "ErrorResponse"
 fixSchemaName x = x
+
+getMediaTypeName :: Text -> Text
+getMediaTypeName "application/json" = ""
+getMediaTypeName "application/octet-stream" = "OctetStream"
+getMediaTypeName x = x
+
+getResponseName :: Text -> Text
+getResponseName "200" = "Success"
+getResponseName x = x
 
 makeIndexModule :: Text -> Module
 makeIndexModule name = Module "index.ts" [ExportAll name]
