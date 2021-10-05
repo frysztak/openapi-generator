@@ -77,6 +77,7 @@ schemaToTypeRef parentName (SchemaData schema) = fmap makeNullable' type'
         Just _ -> Just $ TypeRef (getEnumName parentName)
       "object" -> Just $ TypeRef parentName
       "integer" -> Just Number
+      "number" -> Just Number
       "boolean" -> Just Boolean
       "null" -> Just Null
       "array" -> case schema ^. #items of
@@ -144,6 +145,13 @@ capitalize str = case null str of
   False -> toUpper (head str) <> tail str
     where
       toUpper = singleton . Char.toUpper
+
+lowercase :: Text -> Text
+lowercase str = case null str of
+  True -> ""
+  False -> toLower (head str) <> tail str
+    where
+      toLower = singleton . Char.toLower
 
 fixSchemaName :: Text -> Text
 fixSchemaName "Error" = "ErrorResponse"
