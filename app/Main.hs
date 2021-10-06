@@ -17,7 +17,6 @@ import Data.Text (unpack)
 import Data.Text.IO (writeFile)
 import Data.Version (showVersion)
 import Generator (generate)
-import Generator.Enum
 import Generator.Fetch
 import Generator.Interface
 import GitHash
@@ -88,7 +87,7 @@ runGenerator CLIArgs {input, outputDir} = do
       Left err -> die $ "Failed to parse JSON: '" <> err <> "'"
       Right openApi ->
         do
-          let modules = generate openApi [interfaceGenerator, fetchGenerator, enumGenerator]
+          let modules = generate openApi [interfaceGenerator, fetchGenerator]
           forM_ modules $ \tsModule -> do
             let moduleName = fileName tsModule
             let dir = if moduleName == "common.ts" then outputDir else targetDir
