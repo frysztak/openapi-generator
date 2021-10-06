@@ -18,45 +18,22 @@ import Text.RawString.QQ (r)
 spec :: Spec
 spec = do
   describe "getResponseType" $ do
-    let decodeResponses = decode :: BS.ByteString -> Maybe Responses
+    let decodeOperation = decode :: BS.ByteString -> Maybe Operation
 
     it "can process refs" $ do
-      let responses =
-            decodeResponses
+      let operation =
+            decodeOperation
               [r|
 {
-  "200": {
-    "description": "successful operation",
-    "content": {
-      "application/json": {
-        "schema": {
-          "$ref": "#/components/schemas/ApiResponse"
-        }
-      }
-    }
-  }
-}
-|]
-      responses `shouldNotBe` Nothing
-      responses `shouldNotBe` Just M.empty
-
-      let responseType = getResponseType =<< responses
-      responseType `shouldBe` Just (QualifiedName "M" $ TypeRef "ApiResponse")
-
-    it "can process empty inline schema" $ do
-      let responses =
-            decodeResponses
-              [r|
-{
-  "200": {
-    "description": "successful operation",
-    "content": {
-      "application/json": {
-        "schema": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "integer",
-            "format": "int32"
+  "operationId": "getPetById",
+  "parameters": [],
+  "responses": {
+    "200": {
+      "description": "successful operation",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiResponse"
           }
         }
       }
@@ -64,47 +41,50 @@ spec = do
   }
 }
 |]
-      responses `shouldNotBe` Nothing
-      responses `shouldNotBe` Just M.empty
+      operation `shouldNotBe` Nothing
 
-      let responseType = getResponseType =<< responses
-      responseType `shouldBe` Just (Object M.empty)
+      let responseType = getResponseType "/pet/{petId}" "get" =<< operation
+      responseType `shouldBe` Just (QualifiedName "M" $ TypeRef "ApiResponse")
 
+    --    it "can process empty inline schema" $ do
+    --      let responses =
+    --            decodeResponses
+    --              [r|
+    --{
+    --  "200": {
+    --    "description": "successful operation",
+    --    "content": {
+    --      "application/json": {
+    --        "schema": {
+    --          "type": "object",
+    --          "additionalProperties": {
+    --            "type": "integer",
+    --            "format": "int32"
+    --          }
+    --        }
+    --      }
+    --    }
+    --  }
+    --}--|]
+    --      responses `shouldNotBe` Nothing
+    --      responses `shouldNotBe` Just M.empty
+    --
+    --      let responseType = getResponseType =<< responses
+    --      responseType `shouldBe` Just (Object M.empty)
+    --
     it "can process string schema" $ do
-      let responses =
-            decodeResponses
+      let operation =
+            decodeOperation
               [r|
 {
-  "200": {
-    "description": "successful operation",
-    "content": {
-      "application/json": {
-        "schema": {
-          "type": "string"
-        }
-      }
-    }
-  }
-}
-|]
-      responses `shouldNotBe` Nothing
-      responses `shouldNotBe` Just M.empty
-
-      let responseType = getResponseType =<< responses
-      responseType `shouldBe` Just String
-
-    it "can process string array schema" $ do
-      let responses =
-            decodeResponses
-              [r|
-{
-  "200": {
-    "description": "successful operation",
-    "content": {
-      "application/json": {
-        "schema": {
-          "type": "array",
-          "items": {
+  "operationId": "getPetById",
+  "parameters": [],
+  "responses": {
+    "200": {
+      "description": "successful operation",
+      "content": {
+        "application/json": {
+          "schema": {
             "type": "string"
           }
         }
@@ -113,25 +93,28 @@ spec = do
   }
 }
 |]
-      responses `shouldNotBe` Nothing
-      responses `shouldNotBe` Just M.empty
+      operation `shouldNotBe` Nothing
 
-      let responseType = getResponseType =<< responses
-      responseType `shouldBe` Just (List String)
+      let responseType = getResponseType "/pet/{petId}" "get" =<< operation
+      responseType `shouldBe` Just String
 
-    it "can process ref array schema" $ do
-      let responses =
-            decodeResponses
+    it "can process string array schema" $ do
+      let operation =
+            decodeOperation
               [r|
 {
-  "200": {
-    "description": "successful operation",
-    "content": {
-      "application/json": {
-        "schema": {
-          "type": "array",
-          "items": {
-            "$ref": "#/components/schemas/Pet"
+  "operationId": "getPetById",
+  "parameters": [],
+  "responses": {
+    "200": {
+      "description": "successful operation",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }
@@ -139,24 +122,24 @@ spec = do
   }
 }
 |]
-      responses `shouldNotBe` Nothing
-      responses `shouldNotBe` Just M.empty
+      operation `shouldNotBe` Nothing
 
-      let responseType = getResponseType =<< responses
-      responseType `shouldBe` Just (List (QualifiedName "M" (TypeRef "Pet")))
+      let responseType = getResponseType "/pet/{petId}" "get" =<< operation
+      responseType `shouldBe` Just (List String)
 
-    it "can process ref 2D array schema" $ do
-      let responses =
-            decodeResponses
+    it "can process ref array schema" $ do
+      let operation =
+            decodeOperation
               [r|
 {
-  "200": {
-    "description": "successful operation",
-    "content": {
-      "application/json": {
-        "schema": {
-          "type": "array",
-          "items": {
+  "operationId": "getPetById",
+  "parameters": [],
+  "responses": {
+    "200": {
+      "description": "successful operation",
+      "content": {
+        "application/json": {
+          "schema": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Pet"
@@ -168,11 +151,89 @@ spec = do
   }
 }
 |]
-      responses `shouldNotBe` Nothing
-      responses `shouldNotBe` Just M.empty
+      operation `shouldNotBe` Nothing
 
-      let responseType = getResponseType =<< responses
+      let responseType = getResponseType "/pet/{petId}" "get" =<< operation
+      responseType `shouldBe` Just (List (QualifiedName "M" (TypeRef "Pet")))
+
+    it "can process ref 2D array schema" $ do
+      let operation =
+            decodeOperation
+              [r|
+{
+  "operationId": "getPetById",
+  "parameters": [],
+  "responses": {
+    "200": {
+      "description": "successful operation",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Pet"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+|]
+      operation `shouldNotBe` Nothing
+
+      let responseType = getResponseType "/pet/{petId}" "get" =<< operation
       responseType `shouldBe` Just (List $ List (QualifiedName "M" (TypeRef "Pet")))
+
+    it "can process inline object" $ do
+      let operation =
+            decodeOperation
+              [r|
+{
+  "operationId": "getPetById",
+  "parameters": [],
+  "responses": {
+    "200": {
+      "description": "successful operation",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["name", "id", "isFluffy", "tags"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "example": "doggie"
+              },
+              "id": {
+                "type": "integer",
+                "format": "int64",
+                "example": 10
+              },
+              "isFluffy": {
+                "type": "boolean"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Tag"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+|]
+      operation `shouldNotBe` Nothing
+
+      let responseType = getResponseType "/pet/{petId}" "get" =<< operation
+      responseType `shouldBe` Just (QualifiedName "M" (TypeRef "GetPetByIdSuccessResponse"))
 
   describe "sortFunctionArgs" $ do
     it "can sort args" $ do
@@ -216,7 +277,7 @@ spec = do
 |]
       reqBody `shouldNotBe` Nothing
 
-      let funcArg = requestBodyToFuncArg =<< reqBody
+      let funcArg = requestBodyToFuncArg "" =<< reqBody
       funcArg
         `shouldBe` Just
           ( FunctionArg
@@ -244,7 +305,7 @@ spec = do
 |]
       reqBody `shouldNotBe` Nothing
 
-      let funcArg = requestBodyToFuncArg =<< reqBody
+      let funcArg = requestBodyToFuncArg "" =<< reqBody
       funcArg
         `shouldBe` Just
           ( FunctionArg
@@ -265,7 +326,7 @@ spec = do
 |]
       reqBody `shouldNotBe` Nothing
 
-      let funcArg = requestBodyToFuncArg =<< reqBody
+      let funcArg = requestBodyToFuncArg "" =<< reqBody
       funcArg
         `shouldBe` Just
           ( FunctionArg
@@ -275,3 +336,264 @@ spec = do
                 defaultValue = Nothing
               }
           )
+
+  describe "getParameters" $ do
+    let decodeOperation = decode :: BS.ByteString -> Maybe Operation
+    describe "regular parameters" $ do
+      it "can process ref" $ do
+        let operation =
+              decodeOperation
+                [r|
+{
+  "operationId": "getPetById",
+  "parameters": [
+    {
+      "$ref": "#/components/parameters/PetParam"
+    }
+  ],
+  "responses": {}
+}
+|]
+        operation `shouldNotBe` Nothing
+
+        let params = fmap (getParameters "/pet/{petId}" "get") operation
+        params
+          `shouldBe` Just
+            [ FunctionArg
+                { name = "petParam",
+                  optional = Just False,
+                  typeReference = Just (QualifiedName "M" $ TypeRef "PetParam"),
+                  defaultValue = Nothing
+                }
+            ]
+
+      it "can process string/number/boolean/array ref" $ do
+        let operation =
+              decodeOperation
+                [r|
+{
+  "operationId": "getPetById",
+  "parameters": [
+    {
+      "name": "petId",
+      "in": "path",
+      "required": true,
+      "schema": {
+        "type": "string"
+      }
+    },
+    {
+      "name": "petAge",
+      "in": "query",
+      "required": true,
+      "schema": {
+        "type": "number"
+      }
+    },
+    {
+      "name": "petFluffy",
+      "in": "query",
+      "required": true,
+      "schema": {
+        "type": "boolean"
+      }
+    },
+    {
+      "name": "petTags",
+      "in": "query",
+      "required": true,
+      "schema": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Tag"
+        }
+      }
+    }
+  ],
+  "responses": {}
+}
+|]
+        operation `shouldNotBe` Nothing
+
+        let params = fmap (getParameters "/pet/{petId}" "get") operation
+        params
+          `shouldBe` Just
+            [ FunctionArg {name = "petId", optional = Just False, typeReference = Just String, defaultValue = Nothing},
+              FunctionArg {name = "petAge", optional = Just False, typeReference = Just Number, defaultValue = Nothing},
+              FunctionArg {name = "petFluffy", optional = Just False, typeReference = Just Boolean, defaultValue = Nothing},
+              FunctionArg {name = "petTags", optional = Just False, typeReference = Just (List (QualifiedName "M" $ TypeRef "Tag")), defaultValue = Nothing}
+            ]
+
+      it "can process inline object" $ do
+        let operation =
+              decodeOperation
+                [r|
+{
+  "operationId": "getPetById",
+  "parameters": [
+    {
+      "name": "pet",
+      "in": "query",
+      "required": true,
+      "schema": {
+        "type": "object",
+        "required": ["name", "id", "isFluffy", "tags"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "doggie"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 10
+          },
+          "isFluffy": {
+            "type": "boolean"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tag"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "responses": {}
+}
+|]
+        operation `shouldNotBe` Nothing
+
+        let params = fmap (getParameters "/pet/{petId}" "get") operation
+        params
+          `shouldBe` Just
+            [ FunctionArg
+                { name = "pet",
+                  optional = Just False,
+                  typeReference = Just (QualifiedName "M" $ TypeRef "GetPetByIdPetParam"),
+                  defaultValue = Nothing
+                }
+            ]
+
+      it "can process inline enum" $ do
+        let operation =
+              decodeOperation
+                [r|
+{
+  "operationId": "getPetById",
+  "parameters": [
+    {
+      "name": "petStatus",
+      "in": "query",
+      "required": true,
+      "schema": {
+        "type": "string",
+        "enum": ["available", "pending", "sold"]
+      }
+    }
+  ],
+  "responses": {}
+}
+|]
+        operation `shouldNotBe` Nothing
+
+        let params = fmap (getParameters "/pet/{petId}" "get") operation
+        params
+          `shouldBe` Just
+            [ FunctionArg
+                { name = "petStatus",
+                  optional = Just False,
+                  typeReference = Just (QualifiedName "M" $ TypeRef "GetPetByIdPetStatusParamEnum"),
+                  defaultValue = Nothing
+                }
+            ]
+
+    describe "request body" $ do
+      it "can process ref" $ do
+        let operation =
+              decodeOperation
+                [r|
+{
+  "operationId": "getPetById",
+  "parameters": [],
+  "responses": {},
+  "requestBody": {
+    "description": "Update an existent user in the store",
+    "content": {
+      "application/json": {
+        "schema": {
+          "$ref": "#/components/requestBodies/PetRequestBody"
+        }
+      }
+    }
+  }
+}
+|]
+        operation `shouldNotBe` Nothing
+
+        let params = fmap (getParameters "/pet/{petId}" "get") operation
+        params
+          `shouldBe` Just
+            [ FunctionArg
+                { name = "requestBody",
+                  optional = Nothing,
+                  typeReference = Just (QualifiedName "M" $ TypeRef "PetRequestBody"),
+                  defaultValue = Nothing
+                }
+            ]
+
+      it "can process string/boolean/number/array ref" $ do
+        let operation =
+              decodeOperation
+                [r|
+{
+  "operationId": "getPetById",
+  "parameters": [],
+  "responses": {},
+  "requestBody": {
+    "description": "Update an existent user in the store",
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "required": ["name", "id", "isFluffy", "tags"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "example": "doggie"
+            },
+            "id": {
+              "type": "integer",
+              "format": "int64",
+              "example": 10
+            },
+            "isFluffy": {
+              "type": "boolean"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Tag"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+|]
+        operation `shouldNotBe` Nothing
+
+        let params = fmap (getParameters "/pet/{petId}" "get") operation
+        params
+          `shouldBe` Just
+            [ FunctionArg
+                { name = "requestBody",
+                  optional = Nothing,
+                  typeReference = Just (QualifiedName "M" $ TypeRef "GetPetByIdRequestBody"),
+                  defaultValue = Nothing
+                }
+            ]

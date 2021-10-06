@@ -17,7 +17,7 @@ import qualified Data.Map.Strict as M
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Text (Text, toUpper)
 import Generator
-import Generator.Common (cleanRef, getOperationName, makeIndexModule, mapMaybeArray, schemaToType)
+import Generator.Common (capitalize, cleanRef, getMediaTypeName, getOperationName, getResponseName, lowercase, makeIndexModule, mapMaybeArray, schemaToType, schemaToTypeRef)
 import Language.TypeScript
 import OpenAPI
 
@@ -87,21 +87,21 @@ instance GenerateAST' (Text, Text, Operation) VariableDeclaration where
                 args =
                   [ makeFunctionArg
                       { name = "config",
-                        typeReference = Just $ TypeRef "ClientConfig"
+                        typeReference = Just $ TypeRef "FetchConfig"
                       }
                   ],
                 body = LambdaBodyExpr e,
                 returnType = Nothing
               }
 
-    let returnType' = getResponseType $ op ^. #responses
+    let returnType' = getResponseType endpoint verb op
     let returnType'' = fmap (\t -> Generic (TypeRef "Promise") [t]) returnType'
 
     let fetchLambda =
           ELambda $
             Lambda
               { async = Nothing,
-                args = getParameters op,
+                args = getParameters endpoint verb op,
                 returnType = returnType'',
                 body = runReader getFetchBody $ makeEnv openApi (endpoint, verb, op, returnType')
               }
@@ -114,11 +114,13 @@ instance GenerateAST' (Text, Text, Operation) VariableDeclaration where
           initialValue = Just $ fetchConfigLambda fetchLambda
         }
 
-getParameters :: Operation -> [FunctionArg]
-getParameters op = sortFunctionArgs $ map getParameter parameters' ++ requestBodyParam
+getParameters :: Text -> Text -> Operation -> [FunctionArg]
+getParameters endpoint verb op = sortFunctionArgs $ map getParam parameters' ++ requestBodyParam
   where
+    opName = getOperationName endpoint verb op
+    getParam = getParameter opName
     parameters' = mapMaybeArray $ op ^. #parameters
-    requestBodyParam = getRequestBodyParameter op
+    requestBodyParam = getRequestBodyParameter opName op
 
 sortFunctionArgs :: [FunctionArg] -> [FunctionArg]
 sortFunctionArgs =
@@ -172,47 +174,52 @@ getPathQueryParameters op = case (path, query) of
     path = getParametersObject "path" op
     emptyObj = EObjectLiteral []
 
-getParameter :: ParameterOrReference -> FunctionArg
-getParameter (ParameterReference (Reference ref)) =
+getParameter :: Text -> ParameterOrReference -> FunctionArg
+getParameter _ (ParameterReference (Reference ref)) =
   FunctionArg
-    { name = ref,
+    { name = lowercase typeName,
       optional = Just False,
-      typeReference = Just String,
+      typeReference = Just $ rewriteImportedTypes (TypeRef typeName),
       defaultValue = Nothing
     }
-getParameter (ParameterData p) = FunctionArg {..}
+  where
+    typeName = cleanRef ref
+getParameter opName (ParameterData p) = FunctionArg {..}
   where
     name = p ^. #name
     optional = fmap not $ p ^. #required
-    typeReference = schemaToType =<< (p ^. #schema)
+    schemaName = capitalize opName <> capitalize name <> "Param"
+    typeReference = fmap rewriteImportedTypes (schemaToTypeRef schemaName =<< (p ^. #schema))
     defaultValue = Nothing
 
-getRequestBodyParameter :: Operation -> [FunctionArg]
-getRequestBodyParameter op = catMaybes [requestBodyToFuncArg =<< parameter']
+getRequestBodyParameter :: Text -> Operation -> [FunctionArg]
+getRequestBodyParameter parentName op = catMaybes [requestBodyToFuncArg parentName =<< parameter']
   where
     parameter' = op ^. #requestBody
 
-requestBodyToFuncArg :: RequestBodyOrReference -> Maybe FunctionArg
-requestBodyToFuncArg (RequestBodyReference (Reference ref)) =
+requestBodyToFuncArg :: Text -> RequestBodyOrReference -> Maybe FunctionArg
+requestBodyToFuncArg _ (RequestBodyReference (Reference ref)) =
   Just
     ( makeFunctionArg
         { name = "requestBody",
-          typeReference = Just $ QualifiedName "M" (TypeRef $ cleanRef ref)
+          typeReference = (Just . rewriteImportedTypes) $ TypeRef (cleanRef ref)
         } ::
         FunctionArg
     )
-requestBodyToFuncArg (RequestBodyData p) = case (jsonArg, octetArg) of
+requestBodyToFuncArg parentName (RequestBodyData p) = case (jsonArg, octetArg) of
   (_, Just _) -> octetArg
   (Just _, _) -> jsonArg
-  (Nothing, Nothing) -> error $ "Request body contains '" ++ show (M.keys (p ^. #content)) ++ ", which is not supported.  Only JSON and Octet Stream are supported."
+  (Nothing, Nothing) ->
+    error $ "Request body contains '" ++ show (M.keys (p ^. #content)) ++ ", which is not supported.  Only JSON and Octet Stream are supported."
   where
     json = (p ^. #content) M.!? "application/json"
+    schemaName = capitalize parentName <> "RequestBody"
     jsonArg =
       fmap
         ( \MediaType {schema} ->
             makeFunctionArg
               { name = "requestBody",
-                typeReference = (Just . QualifiedName "M") =<< schemaToType schema
+                typeReference = (Just . rewriteImportedTypes) =<< schemaToTypeRef schemaName schema
               } ::
               FunctionArg
         )
@@ -230,19 +237,23 @@ requestBodyToFuncArg (RequestBodyData p) = case (jsonArg, octetArg) of
         )
         octet
 
-getResponseType :: Responses -> Maybe Type
-getResponseType rs = do
+getResponseType :: Text -> Text -> Operation -> Maybe Type
+getResponseType endpoint verb op = do
+  let rs = op ^. #responses
   code200 <- rs M.!? "200"
-  content <- code200 ^. #content
-  json <- content M.!? "application/json"
-  type' <- schemaToType (json ^. #schema)
+  type' <- case code200 of
+    (ResponseReference (Reference ref)) -> Just $ TypeRef (cleanRef ref)
+    (ResponseData r) -> do
+      content <- r ^. #content
+      json <- content M.!? "application/json"
+      let name =
+            capitalize (getOperationName endpoint verb op)
+              <> getResponseName "200"
+              <> getMediaTypeName "application/json"
+              <> "Response"
+      schemaToTypeRef name (json ^. #schema)
 
   pure $ rewriteImportedTypes type'
-  where
-    rewriteImportedTypes :: Type -> Type
-    rewriteImportedTypes (TypeRef t) = QualifiedName "M" $ TypeRef t
-    rewriteImportedTypes (List t) = List $ rewriteImportedTypes t
-    rewriteImportedTypes t = t
 
 getFetchBody :: Reader (Env (Text, Text, Operation, Maybe Type)) LambdaBody
 getFetchBody = do
@@ -695,7 +706,7 @@ makeBuildHeadersFunc = do
 makeFetchConfigInterface :: OpenAPI -> InterfaceDeclaration
 makeFetchConfigInterface openApi =
   InterfaceDeclaration
-    { name = "ClientConfig",
+    { name = "FetchConfig",
       extends = Nothing,
       properties =
         M.fromList
@@ -806,3 +817,8 @@ usesBearerToken openApi = do
 mapTrue :: a -> Bool -> [a]
 mapTrue f True = [f]
 mapTrue f _ = []
+
+rewriteImportedTypes :: Type -> Type
+rewriteImportedTypes (TypeRef t) = QualifiedName "M" $ TypeRef t
+rewriteImportedTypes (List t) = List $ rewriteImportedTypes t
+rewriteImportedTypes t = t

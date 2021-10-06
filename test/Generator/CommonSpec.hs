@@ -1,28 +1,32 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Generator.CommonSpec where
 
+import Data.Aeson (decode)
+import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map.Strict as M
 import Data.Text
 import Generator.Common
+import Language.TypeScript.Syntax
 import OpenAPI
 import Test.Hspec
+import Text.RawString.QQ (r)
 
 spec :: Spec
 spec = do
   describe "getOperationName" $ do
     let commonOperation =
-          Operation
-            { tags = Nothing,
-              summary = Nothing,
-              description = Nothing,
-              operationId = Nothing,
-              parameters = Nothing,
-              requestBody = Nothing,
-              responses = M.fromList [],
-              deprecated = Nothing
-            }
+          OpenAPI.Operation
+            Nothing
+            Nothing
+            Nothing
+            Nothing
+            Nothing
+            Nothing
+            (M.fromList [])
+            Nothing
 
     it "can read 'operationId' if provided" $ do
       let operation = commonOperation {operationId = Just "getPets"}
@@ -54,3 +58,158 @@ spec = do
         let operation = commonOperation {operationId = Nothing}
         let name = getOperationName "/store/order/{orderId}" "delete" operation
         name `shouldBe` "deleteStoreOrderByOrderId"
+
+  describe "schemaToTypeRef" $ do
+    let decodeSchemaOrRef = decode :: BS.ByteString -> Maybe SchemaOrReference
+
+    it "works for string" $ do
+      let schema =
+            decodeSchemaOrRef
+              [r|
+{
+  "type": "string",
+  "example": "doggie"
+}
+|]
+      schema `shouldNotBe` Nothing
+
+      let type' = schemaToTypeRef "Pet" =<< schema
+      type' `shouldNotBe` Nothing
+      type' `shouldBe` Just String
+
+    it "works for embedded enum" $ do
+      let schema =
+            decodeSchemaOrRef
+              [r|
+{
+  "type": "string",
+  "description": "pet status in the store",
+  "enum": [
+    "available",
+    "pending",
+    "sold"
+  ]
+}
+|]
+      schema `shouldNotBe` Nothing
+
+      let type' = schemaToTypeRef "PetStatus" =<< schema
+      type' `shouldNotBe` Nothing
+      type' `shouldBe` Just (TypeRef "PetStatusEnum")
+
+    it "works for object embedded as list item" $ do
+      let schema =
+            decodeSchemaOrRef
+              [r|
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "integer",
+        "format": "int64",
+        "example": 10
+      },
+      "name": {
+        "type": "string",
+        "example": "doggie"
+      }
+    }
+  }
+}
+|]
+      schema `shouldNotBe` Nothing
+
+      let type' = schemaToTypeRef "PetToys" =<< schema
+      type' `shouldNotBe` Nothing
+      type' `shouldBe` Just (List (TypeRef "PetToysListItem"))
+
+    it "works for enum embedded as list item" $ do
+      let schema =
+            decodeSchemaOrRef
+              [r|
+{
+  "type": "array",
+  "items": {
+    "type": "string",
+    "description": "pet status in the store",
+    "enum": [
+      "available",
+      "pending",
+      "sold"
+    ]
+  }
+}
+|]
+      schema `shouldNotBe` Nothing
+
+      let type' = schemaToTypeRef "PetToys" =<< schema
+      type' `shouldNotBe` Nothing
+      type' `shouldBe` Just (List (TypeRef "PetToysListItemEnum"))
+
+    it "works for object" $ do
+      let schema =
+            decodeSchemaOrRef
+              [r|
+{
+  "required": ["name", "photoUrls"],
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "integer",
+      "format": "int64",
+      "example": 10
+    },
+    "name": {
+      "type": "string",
+      "example": "doggie"
+    },
+    "isFluffy": {
+      "type": "boolean"
+    },
+    "category": {
+      "$ref": "#/components/schemas/Category"
+    },
+    "photoUrls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/Tag"
+      }
+    },
+    "status": {
+      "type": "string",
+      "description": "pet status in the store",
+      "enum": ["available", "pending", "sold"]
+    }
+  }
+}
+|]
+      schema `shouldNotBe` Nothing
+
+      let type' = schemaToTypeRef "Pet" =<< schema
+      type' `shouldBe` Just (TypeRef "Pet")
+
+    it "works for empty object" $ do
+      let schema =
+            decodeSchemaOrRef
+              [r|
+{
+  "type": "object",
+  "additionalProperties": {
+    "type": "integer",
+    "format": "int32"
+    }
+}
+|]
+      schema `shouldNotBe` Nothing
+
+      let type' = schemaToTypeRef "PetToys" =<< schema
+      type' `shouldNotBe` Nothing
+      type' `shouldBe` Just (TypeRef "PetToys")

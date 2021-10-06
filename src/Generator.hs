@@ -5,7 +5,7 @@ module Generator where
 import Control.Lens
 import Control.Monad.Reader
 import Data.List (findIndex)
-import Language.TypeScript (Module (Module, body, fileName))
+import Language.TypeScript (Module (Module, body, fileName), Global)
 import OpenAPI (OpenAPI, SchemaOrReference)
 
 class GenerateAST a b where
