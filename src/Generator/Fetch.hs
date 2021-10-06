@@ -87,7 +87,7 @@ instance GenerateAST' (Text, Text, Operation) VariableDeclaration where
                 args =
                   [ makeFunctionArg
                       { name = "config",
-                        typeReference = Just $ TypeRef "ClientConfig"
+                        typeReference = Just $ TypeRef "FetchConfig"
                       }
                   ],
                 body = LambdaBodyExpr e,
@@ -706,7 +706,7 @@ makeBuildHeadersFunc = do
 makeFetchConfigInterface :: OpenAPI -> InterfaceDeclaration
 makeFetchConfigInterface openApi =
   InterfaceDeclaration
-    { name = "ClientConfig",
+    { name = "FetchConfig",
       extends = Nothing,
       properties =
         M.fromList
