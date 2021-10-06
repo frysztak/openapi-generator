@@ -236,6 +236,48 @@ spec = do
                        )
                    ]
 
+    it "doesn't append 'Enum' if schema name already ends with it" $ do
+      let schemas =
+            decodeSchemas
+              [r|
+{
+  "PetStatusEnum": {
+    "enum": ["available", "pending", "sold"],
+    "type": "string"
+  }
+}
+|]
+      schemas `shouldNotBe` Nothing
+      let globals = maybe [] genSchemas schemas
+
+      globals
+        `shouldBe` [ Export
+                       ( GlobalVar
+                           ( VariableDeclaration
+                               { variableType = Const,
+                                 identifier = VariableName "PetStatusEnumValues",
+                                 typeReference = Nothing,
+                                 initialValue =
+                                   Just
+                                     ( EAs
+                                         ( EArrayLiteral
+                                             [ EString "available",
+                                               EString "pending",
+                                               EString "sold"
+                                             ]
+                                         )
+                                         (TypeRef "const")
+                                     )
+                               }
+                           )
+                       ),
+                     Export
+                       ( GlobalTypeAlias
+                           "PetStatusEnum"
+                           (IndexedAccess (Typeof (TypeRef "PetStatusEnumValues")) Number)
+                       )
+                   ]
+
   describe "Parameters generator" $ do
     let decodeParameters = decode :: BS.ByteString -> Maybe Parameters
 

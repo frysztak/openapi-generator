@@ -12,7 +12,7 @@ import qualified Data.Char as Char
 import qualified Data.List as L
 import Data.Map.Strict as M (Map, empty, map, mapKeys, mapMaybe, mapMaybeWithKey)
 import Data.Maybe (catMaybes, fromMaybe, isJust, listToMaybe)
-import Data.Text (Text, concat, dropAround, head, null, singleton, splitOn, tail, toTitle, unpack)
+import Data.Text (Text, concat, dropAround, head, null, singleton, splitOn, tail, takeEnd, toTitle, unpack)
 import Generator (GenerateAST, genAST)
 import Language.TypeScript.Syntax
 import OpenAPI
@@ -91,7 +91,9 @@ schemaToTypeRef parentName (SchemaData schema) = fmap makeNullable' type'
       x -> error $ "Unsupported schema type '" <> unpack x <> "'"
 
 getEnumName :: Text -> Text
-getEnumName parentName = capitalize parentName <> "Enum"
+getEnumName parentName = case takeEnd 4 parentName of
+  "Enum" -> capitalize parentName
+  x -> capitalize parentName <> "Enum"
 
 cleanRef :: Text -> Text
 cleanRef = last . splitOn "/"
