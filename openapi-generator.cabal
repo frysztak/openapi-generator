@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           openapi-generator
-version:        0.1.0
+version:        0.2.0
 description:    OpenAPI client generator
 homepage:       https://github.com/frysztak/openapi-generator#readme
 bug-reports:    https://github.com/frysztak/openapi-generator/issues
