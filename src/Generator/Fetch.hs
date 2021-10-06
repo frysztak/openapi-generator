@@ -120,7 +120,7 @@ getParameters endpoint verb op = sortFunctionArgs $ map getParam parameters' ++ 
     opName = getOperationName endpoint verb op
     getParam = getParameter opName
     parameters' = mapMaybeArray $ op ^. #parameters
-    requestBodyParam = getRequestBodyParameter op
+    requestBodyParam = getRequestBodyParameter opName op
 
 sortFunctionArgs :: [FunctionArg] -> [FunctionArg]
 sortFunctionArgs =
@@ -192,32 +192,34 @@ getParameter opName (ParameterData p) = FunctionArg {..}
     typeReference = fmap rewriteImportedTypes (schemaToTypeRef schemaName =<< (p ^. #schema))
     defaultValue = Nothing
 
-getRequestBodyParameter :: Operation -> [FunctionArg]
-getRequestBodyParameter op = catMaybes [requestBodyToFuncArg =<< parameter']
+getRequestBodyParameter :: Text -> Operation -> [FunctionArg]
+getRequestBodyParameter parentName op = catMaybes [requestBodyToFuncArg parentName =<< parameter']
   where
     parameter' = op ^. #requestBody
 
-requestBodyToFuncArg :: RequestBodyOrReference -> Maybe FunctionArg
-requestBodyToFuncArg (RequestBodyReference (Reference ref)) =
+requestBodyToFuncArg :: Text -> RequestBodyOrReference -> Maybe FunctionArg
+requestBodyToFuncArg _ (RequestBodyReference (Reference ref)) =
   Just
     ( makeFunctionArg
         { name = "requestBody",
-          typeReference = Just $ QualifiedName "M" (TypeRef $ cleanRef ref)
+          typeReference = (Just . rewriteImportedTypes) $ TypeRef (cleanRef ref)
         } ::
         FunctionArg
     )
-requestBodyToFuncArg (RequestBodyData p) = case (jsonArg, octetArg) of
+requestBodyToFuncArg parentName (RequestBodyData p) = case (jsonArg, octetArg) of
   (_, Just _) -> octetArg
   (Just _, _) -> jsonArg
-  (Nothing, Nothing) -> error $ "Request body contains '" ++ show (M.keys (p ^. #content)) ++ ", which is not supported.  Only JSON and Octet Stream are supported."
+  (Nothing, Nothing) ->
+    error $ "Request body contains '" ++ show (M.keys (p ^. #content)) ++ ", which is not supported.  Only JSON and Octet Stream are supported."
   where
     json = (p ^. #content) M.!? "application/json"
+    schemaName = capitalize parentName <> "RequestBody"
     jsonArg =
       fmap
         ( \MediaType {schema} ->
             makeFunctionArg
               { name = "requestBody",
-                typeReference = (Just . QualifiedName "M") =<< schemaToType schema
+                typeReference = (Just . rewriteImportedTypes) =<< schemaToTypeRef schemaName schema
               } ::
               FunctionArg
         )

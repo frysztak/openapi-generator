@@ -277,7 +277,7 @@ spec = do
 |]
       reqBody `shouldNotBe` Nothing
 
-      let funcArg = requestBodyToFuncArg =<< reqBody
+      let funcArg = requestBodyToFuncArg "" =<< reqBody
       funcArg
         `shouldBe` Just
           ( FunctionArg
@@ -305,7 +305,7 @@ spec = do
 |]
       reqBody `shouldNotBe` Nothing
 
-      let funcArg = requestBodyToFuncArg =<< reqBody
+      let funcArg = requestBodyToFuncArg "" =<< reqBody
       funcArg
         `shouldBe` Just
           ( FunctionArg
@@ -326,7 +326,7 @@ spec = do
 |]
       reqBody `shouldNotBe` Nothing
 
-      let funcArg = requestBodyToFuncArg =<< reqBody
+      let funcArg = requestBodyToFuncArg "" =<< reqBody
       funcArg
         `shouldBe` Just
           ( FunctionArg
@@ -339,11 +339,11 @@ spec = do
 
   describe "getParameters" $ do
     let decodeOperation = decode :: BS.ByteString -> Maybe Operation
-
-    it "can process ref" $ do
-      let operation =
-            decodeOperation
-              [r|
+    describe "regular parameters" $ do
+      it "can process ref" $ do
+        let operation =
+              decodeOperation
+                [r|
 {
   "operationId": "getPetById",
   "parameters": [
@@ -354,23 +354,23 @@ spec = do
   "responses": {}
 }
 |]
-      operation `shouldNotBe` Nothing
+        operation `shouldNotBe` Nothing
 
-      let params = fmap (getParameters "/pet/{petId}" "get") operation
-      params
-        `shouldBe` Just
-          [ FunctionArg
-              { name = "petParam",
-                optional = Just False,
-                typeReference = Just (QualifiedName "M" $ TypeRef "PetParam"),
-                defaultValue = Nothing
-              }
-          ]
+        let params = fmap (getParameters "/pet/{petId}" "get") operation
+        params
+          `shouldBe` Just
+            [ FunctionArg
+                { name = "petParam",
+                  optional = Just False,
+                  typeReference = Just (QualifiedName "M" $ TypeRef "PetParam"),
+                  defaultValue = Nothing
+                }
+            ]
 
-    it "can process string/number/boolean/array ref" $ do
-      let operation =
-            decodeOperation
-              [r|
+      it "can process string/number/boolean/array ref" $ do
+        let operation =
+              decodeOperation
+                [r|
 {
   "operationId": "getPetById",
   "parameters": [
@@ -413,21 +413,21 @@ spec = do
   "responses": {}
 }
 |]
-      operation `shouldNotBe` Nothing
+        operation `shouldNotBe` Nothing
 
-      let params = fmap (getParameters "/pet/{petId}" "get") operation
-      params
-        `shouldBe` Just
-          [ FunctionArg {name = "petId", optional = Just False, typeReference = Just String, defaultValue = Nothing},
-            FunctionArg {name = "petAge", optional = Just False, typeReference = Just Number, defaultValue = Nothing},
-            FunctionArg {name = "petFluffy", optional = Just False, typeReference = Just Boolean, defaultValue = Nothing},
-            FunctionArg {name = "petTags", optional = Just False, typeReference = Just (List (QualifiedName "M" $ TypeRef "Tag")), defaultValue = Nothing}
-          ]
+        let params = fmap (getParameters "/pet/{petId}" "get") operation
+        params
+          `shouldBe` Just
+            [ FunctionArg {name = "petId", optional = Just False, typeReference = Just String, defaultValue = Nothing},
+              FunctionArg {name = "petAge", optional = Just False, typeReference = Just Number, defaultValue = Nothing},
+              FunctionArg {name = "petFluffy", optional = Just False, typeReference = Just Boolean, defaultValue = Nothing},
+              FunctionArg {name = "petTags", optional = Just False, typeReference = Just (List (QualifiedName "M" $ TypeRef "Tag")), defaultValue = Nothing}
+            ]
 
-    it "can process inline object" $ do
-      let operation =
-            decodeOperation
-              [r|
+      it "can process inline object" $ do
+        let operation =
+              decodeOperation
+                [r|
 {
   "operationId": "getPetById",
   "parameters": [
@@ -464,23 +464,23 @@ spec = do
   "responses": {}
 }
 |]
-      operation `shouldNotBe` Nothing
+        operation `shouldNotBe` Nothing
 
-      let params = fmap (getParameters "/pet/{petId}" "get") operation
-      params
-        `shouldBe` Just
-          [ FunctionArg
-              { name = "pet",
-                optional = Just False,
-                typeReference = Just (QualifiedName "M" $ TypeRef "GetPetByIdPetParam"),
-                defaultValue = Nothing
-              }
-          ]
+        let params = fmap (getParameters "/pet/{petId}" "get") operation
+        params
+          `shouldBe` Just
+            [ FunctionArg
+                { name = "pet",
+                  optional = Just False,
+                  typeReference = Just (QualifiedName "M" $ TypeRef "GetPetByIdPetParam"),
+                  defaultValue = Nothing
+                }
+            ]
 
-    it "can process inline enum" $ do
-      let operation =
-            decodeOperation
-              [r|
+      it "can process inline enum" $ do
+        let operation =
+              decodeOperation
+                [r|
 {
   "operationId": "getPetById",
   "parameters": [
@@ -497,15 +497,103 @@ spec = do
   "responses": {}
 }
 |]
-      operation `shouldNotBe` Nothing
+        operation `shouldNotBe` Nothing
 
-      let params = fmap (getParameters "/pet/{petId}" "get") operation
-      params
-        `shouldBe` Just
-          [ FunctionArg
-              { name = "petStatus",
-                optional = Just False,
-                typeReference = Just (QualifiedName "M" $ TypeRef "GetPetByIdPetStatusParamEnum"),
-                defaultValue = Nothing
+        let params = fmap (getParameters "/pet/{petId}" "get") operation
+        params
+          `shouldBe` Just
+            [ FunctionArg
+                { name = "petStatus",
+                  optional = Just False,
+                  typeReference = Just (QualifiedName "M" $ TypeRef "GetPetByIdPetStatusParamEnum"),
+                  defaultValue = Nothing
+                }
+            ]
+
+    describe "request body" $ do
+      it "can process ref" $ do
+        let operation =
+              decodeOperation
+                [r|
+{
+  "operationId": "getPetById",
+  "parameters": [],
+  "responses": {},
+  "requestBody": {
+    "description": "Update an existent user in the store",
+    "content": {
+      "application/json": {
+        "schema": {
+          "$ref": "#/components/requestBodies/PetRequestBody"
+        }
+      }
+    }
+  }
+}
+|]
+        operation `shouldNotBe` Nothing
+
+        let params = fmap (getParameters "/pet/{petId}" "get") operation
+        params
+          `shouldBe` Just
+            [ FunctionArg
+                { name = "requestBody",
+                  optional = Nothing,
+                  typeReference = Just (QualifiedName "M" $ TypeRef "PetRequestBody"),
+                  defaultValue = Nothing
+                }
+            ]
+
+      it "can process string/boolean/number/array ref" $ do
+        let operation =
+              decodeOperation
+                [r|
+{
+  "operationId": "getPetById",
+  "parameters": [],
+  "responses": {},
+  "requestBody": {
+    "description": "Update an existent user in the store",
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "required": ["name", "id", "isFluffy", "tags"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "example": "doggie"
+            },
+            "id": {
+              "type": "integer",
+              "format": "int64",
+              "example": 10
+            },
+            "isFluffy": {
+              "type": "boolean"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Tag"
               }
-          ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
+|]
+        operation `shouldNotBe` Nothing
+
+        let params = fmap (getParameters "/pet/{petId}" "get") operation
+        params
+          `shouldBe` Just
+            [ FunctionArg
+                { name = "requestBody",
+                  optional = Nothing,
+                  typeReference = Just (QualifiedName "M" $ TypeRef "GetPetByIdRequestBody"),
+                  defaultValue = Nothing
+                }
+            ]
